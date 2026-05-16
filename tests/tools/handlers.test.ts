@@ -42,6 +42,19 @@ describe('project tools', () => {
     expect(result.projects).toHaveLength(2);
   });
 
+  it('handleProjectList with pagination', async () => {
+    for (let i = 1; i <= 5; i++) {
+      await handleProjectCreate({ name: `Project ${i}` });
+    }
+    const result = await handleProjectList({ page: 1, limit: 2 });
+    expect(result.projects).toHaveLength(2);
+    expect(result.pagination).toBeDefined();
+    expect(result.pagination.page).toBe(1);
+    expect(result.pagination.limit).toBe(2);
+    expect(result.pagination.total).toBe(5);
+    expect(result.pagination.totalPages).toBe(3);
+  });
+
   it('handleProjectGet returns project with entries and tasks', async () => {
     const created = await handleProjectCreate({ name: 'Full' });
     const pid = created.id;
@@ -111,6 +124,26 @@ describe('entry tools', () => {
     const result = await handleEntryGet({ project_id: pid, section: 'design' });
     expect(result.count).toBe(1);
     expect(result.entries[0].section).toBe('design');
+  });
+
+  it('handleEntryGet with pagination', async () => {
+    for (let i = 1; i <= 5; i++) {
+      await handleEntryCreate({ project_id: pid, section: 'plan', title: `Entry ${i}` });
+    }
+    const result = await handleEntryGet({ project_id: pid, page: 1, limit: 2 });
+    expect(result.entries).toHaveLength(2);
+    expect(result.pagination.page).toBe(1);
+    expect(result.pagination.total).toBe(5);
+  });
+
+  it('handleEntrySearch with pagination', async () => {
+    for (let i = 1; i <= 5; i++) {
+      await handleEntryCreate({ project_id: pid, section: 'plan', title: `Target ${i}` });
+    }
+    const result = await handleEntrySearch({ project_id: pid, query: 'Target', page: 2, limit: 2 });
+    expect(result.results).toHaveLength(2);
+    expect(result.pagination.page).toBe(2);
+    expect(result.pagination.total).toBe(5);
   });
 
   it('handleEntrySearch finds by text', async () => {
@@ -186,6 +219,17 @@ describe('task tools', () => {
     await handleTaskCreate({ project_id: pid, title: 'T2' });
     const result = await handleTaskList({ project_id: pid });
     expect(result.count).toBe(2);
+  });
+
+  it('handleTaskList with pagination', async () => {
+    for (let i = 1; i <= 5; i++) {
+      await handleTaskCreate({ project_id: pid, title: `Task ${i}` });
+    }
+    const result = await handleTaskList({ project_id: pid, page: 1, limit: 3 });
+    expect(result.tasks).toHaveLength(3);
+    expect(result.pagination.page).toBe(1);
+    expect(result.pagination.total).toBe(5);
+    expect(result.pagination.totalPages).toBe(2);
   });
 
   it('handleTaskList filters by sdd_entry_id', async () => {

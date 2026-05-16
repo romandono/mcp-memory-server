@@ -78,9 +78,10 @@ describe('Projects', () => {
     const p2 = makeProject({ name: 'Second', created_at: '2024-02-01T00:00:00Z', updated_at: '2024-02-01T00:00:00Z' });
     createProject(p1);
     createProject(p2);
-    const all = getAllProjects();
-    expect(all).toHaveLength(2);
-    expect(all[0].name).toBe('Second');
+    const { data, total } = getAllProjects();
+    expect(data).toHaveLength(2);
+    expect(total).toBe(2);
+    expect(data[0].name).toBe('Second');
   });
 
   it('updates a project', () => {
@@ -109,8 +110,12 @@ describe('Projects', () => {
     createEntry(makeEntry(project.id));
     createTask(makeTask(project.id));
     deleteProject(project.id);
-    expect(getProjectEntries(project.id)).toHaveLength(0);
-    expect(getProjectTasks(project.id)).toHaveLength(0);
+    const { data: entries, total: eTotal } = getProjectEntries(project.id);
+    expect(entries).toHaveLength(0);
+    expect(eTotal).toBe(0);
+    const { data: tasks, total: tTotal } = getProjectTasks(project.id);
+    expect(tasks).toHaveLength(0);
+    expect(tTotal).toBe(0);
   });
 });
 
@@ -134,9 +139,10 @@ describe('Entries', () => {
     createEntry(makeEntry(project.id, { section: 'plan', title: 'A' }));
     createEntry(makeEntry(project.id, { section: 'design', title: 'B' }));
     createEntry(makeEntry(project.id, { section: 'design', title: 'C' }));
-    const all = getProjectEntries(project.id);
+    const { data: all, total } = getProjectEntries(project.id);
     expect(all).toHaveLength(3);
-    const design = getProjectEntries(project.id, 'design');
+    expect(total).toBe(3);
+    const { data: design } = getProjectEntries(project.id, 'design');
     expect(design).toHaveLength(2);
   });
 
@@ -164,9 +170,10 @@ describe('Entries', () => {
     createProject(project);
     createEntry(makeEntry(project.id, { title: 'Database Design', content: 'SQL schema' }));
     createEntry(makeEntry(project.id, { title: 'API Routes', content: 'Express endpoints' }));
-    const results = searchEntries(project.id, 'database');
-    expect(results).toHaveLength(1);
-    expect(results[0].title).toBe('Database Design');
+    const { data, total } = searchEntries(project.id, 'database');
+    expect(data).toHaveLength(1);
+    expect(total).toBe(1);
+    expect(data[0].title).toBe('Database Design');
   });
 });
 
@@ -189,7 +196,9 @@ describe('Tasks', () => {
     createProject(project);
     createTask(makeTask(project.id));
     createTask(makeTask(project.id));
-    expect(getProjectTasks(project.id)).toHaveLength(2);
+    const { data, total } = getProjectTasks(project.id);
+    expect(data).toHaveLength(2);
+    expect(total).toBe(2);
   });
 
   it('filters tasks by entry', () => {
@@ -199,7 +208,8 @@ describe('Tasks', () => {
     createEntry(entry);
     createTask(makeTask(project.id, { sdd_entry_id: entry.id }));
     createTask(makeTask(project.id));
-    expect(getProjectTasks(project.id, entry.id)).toHaveLength(1);
+    const { data } = getProjectTasks(project.id, entry.id);
+    expect(data).toHaveLength(1);
   });
 
   it('updates task status', () => {

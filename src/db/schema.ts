@@ -1,5 +1,11 @@
 import { getDatabase } from './init.js';
-import { Project, SddEntry, Task, Classification } from '../types/context.js';
+import { Project, SddEntry, Task, Classification, PaginationParams, PaginatedResult } from '../types/context.js';
+
+function parsePagination(params: PaginationParams): { limit: number; offset: number } {
+  const limit = params.limit && params.limit > 0 ? Math.min(params.limit, 200) : 0;
+  const page = params.page && params.page > 0 ? params.page : 0;
+  return { limit, offset: limit > 0 ? (page - 1) * limit : 0 };
+}
 
 // ---- PROJECTS ----
 
@@ -16,8 +22,18 @@ export function getProject(id: string): Project | null {
   return row || null;
 }
 
-export function getAllProjects(): Project[] {
-  return getDatabase().prepare('SELECT * FROM projects ORDER BY created_at DESC').all() as Project[];
+export function getAllProjects(params?: PaginationParams): PaginatedResult<Project> {
+  const { limit, offset } = parsePagination(params || {});
+  const db = getDatabase();
+  const total = (db.prepare('SELECT COUNT(*) as count FROM projects').get() as any).count;
+
+  if (!limit) {
+    const data = db.prepare('SELECT * FROM projects ORDER BY created_at DESC').all() as Project[];
+    return { data, total };
+  }
+
+  const data = db.prepare('SELECT * FROM projects ORDER BY created_at DESC LIMIT ? OFFSET ?').all(limit, offset) as Project[];
+  return { data, total };
 }
 
 export function updateProject(id: string, updates: Partial<Project>): void {
@@ -50,13 +66,33 @@ export function getEntry(id: string): SddEntry | null {
   return { ...row, metadata: row.metadata ? JSON.parse(row.metadata) : undefined };
 }
 
-export function getProjectEntries(projectId: string, section?: string): SddEntry[] {
-  let sql = 'SELECT * FROM sdd_entries WHERE project_id = ?';
-  const params: any[] = [projectId];
-  if (section) { sql += ' AND section = ?'; params.push(section); }
-  sql += ' ORDER BY created_at ASC';
-  const rows = getDatabase().prepare(sql).all(...params) as any[];
-  return rows.map(r => ({ ...r, metadata: r.metadata ? JSON.parse(r.metadata) : undefined }));
+export function getProjectEntries(projectId: string, section?: string, paramsPg?: PaginationParams): PaginatedResult<SddEntry> {
+  const { limit, offset } = parsePagination(paramsPg || {});
+  const db = getDatabase();
+
+  let countSql = 'SELECT COUNT(*) as count FROM sdd_entries WHERE project_id = ?';
+  let dataSql = 'SELECT * FROM sdd_entries WHERE project_id = ?';
+  const countParams: any[] = [projectId];
+  const dataParams: any[] = [projectId];
+
+  if (section) {
+    countSql += ' AND section = ?';
+    dataSql += ' AND section = ?';
+    countParams.push(section);
+    dataParams.push(section);
+  }
+
+  const total = (db.prepare(countSql).get(...countParams) as any).count;
+
+  dataSql += ' ORDER BY created_at ASC';
+  if (limit) {
+    dataSql += ' LIMIT ? OFFSET ?';
+    dataParams.push(limit, offset);
+  }
+
+  const rows = db.prepare(dataSql).all(...dataParams) as any[];
+  const data = rows.map(r => ({ ...r, metadata: r.metadata ? JSON.parse(r.metadata) : undefined }));
+  return { data, total };
 }
 
 export function updateEntry(id: string, updates: Partial<SddEntry>): void {
@@ -73,12 +109,26 @@ export function deleteEntry(id: string): void {
   getDatabase().prepare('DELETE FROM sdd_entries WHERE id = ?').run(id);
 }
 
-export function searchEntries(projectId: string, query: string): SddEntry[] {
+export function searchEntries(projectId: string, query: string, paramsPg?: PaginationParams): PaginatedResult<SddEntry> {
+  const { limit, offset } = parsePagination(paramsPg || {});
+  const db = getDatabase();
   const term = `%${query}%`;
-  const rows = getDatabase().prepare(`
-    SELECT * FROM sdd_entries WHERE project_id = ? AND (title LIKE ? OR content LIKE ?) ORDER BY created_at ASC
-  `).all(projectId, term, term) as any[];
-  return rows.map(r => ({ ...r, metadata: r.metadata ? JSON.parse(r.metadata) : undefined }));
+
+  const total = (db.prepare(`
+    SELECT COUNT(*) as count FROM sdd_entries WHERE project_id = ? AND (title LIKE ? OR content LIKE ?)
+  `).get(projectId, term, term) as any).count;
+
+  let sql = 'SELECT * FROM sdd_entries WHERE project_id = ? AND (title LIKE ? OR content LIKE ?) ORDER BY created_at ASC';
+  const params: any[] = [projectId, term, term];
+
+  if (limit) {
+    sql += ' LIMIT ? OFFSET ?';
+    params.push(limit, offset);
+  }
+
+  const rows = db.prepare(sql).all(...params) as any[];
+  const data = rows.map(r => ({ ...r, metadata: r.metadata ? JSON.parse(r.metadata) : undefined }));
+  return { data, total };
 }
 
 // ---- TASKS ----
@@ -95,12 +145,32 @@ export function getTask(id: string): Task | null {
   return row || null;
 }
 
-export function getProjectTasks(projectId: string, entryId?: string): Task[] {
-  let sql = 'SELECT * FROM tasks WHERE project_id = ?';
-  const params: any[] = [projectId];
-  if (entryId) { sql += ' AND sdd_entry_id = ?'; params.push(entryId); }
-  sql += ' ORDER BY created_at ASC';
-  return getDatabase().prepare(sql).all(...params) as Task[];
+export function getProjectTasks(projectId: string, entryId?: string, paramsPg?: PaginationParams): PaginatedResult<Task> {
+  const { limit, offset } = parsePagination(paramsPg || {});
+  const db = getDatabase();
+
+  let countSql = 'SELECT COUNT(*) as count FROM tasks WHERE project_id = ?';
+  let dataSql = 'SELECT * FROM tasks WHERE project_id = ?';
+  const countParams: any[] = [projectId];
+  const dataParams: any[] = [projectId];
+
+  if (entryId) {
+    countSql += ' AND sdd_entry_id = ?';
+    dataSql += ' AND sdd_entry_id = ?';
+    countParams.push(entryId);
+    dataParams.push(entryId);
+  }
+
+  const total = (db.prepare(countSql).get(...countParams) as any).count;
+
+  dataSql += ' ORDER BY created_at ASC';
+  if (limit) {
+    dataSql += ' LIMIT ? OFFSET ?';
+    dataParams.push(limit, offset);
+  }
+
+  const data = db.prepare(dataSql).all(...dataParams) as Task[];
+  return { data, total };
 }
 
 export function updateTask(id: string, updates: Partial<Task>): void {

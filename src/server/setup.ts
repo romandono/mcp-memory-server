@@ -35,7 +35,10 @@ export function getTools(): Tool[] {
       description: 'Lists all projects',
       inputSchema: {
         type: 'object' as const,
-        properties: {},
+        properties: {
+          page: { type: 'number', description: 'Page number (1-based)' },
+          limit: { type: 'number', description: 'Items per page (max 200)' },
+        },
       },
     },
     {
@@ -73,6 +76,8 @@ export function getTools(): Tool[] {
         properties: {
           project_id: { type: 'string', description: 'Project ID' },
           section: { type: 'string', enum: ['plan', 'design', 'tasks', 'general'], description: 'Optional section filter' },
+          page: { type: 'number', description: 'Page number (1-based)' },
+          limit: { type: 'number', description: 'Items per page (max 200)' },
         },
         required: ['project_id'],
       },
@@ -85,6 +90,8 @@ export function getTools(): Tool[] {
         properties: {
           project_id: { type: 'string', description: 'Project ID' },
           query: { type: 'string', description: 'Search text' },
+          page: { type: 'number', description: 'Page number (1-based)' },
+          limit: { type: 'number', description: 'Items per page (max 200)' },
         },
         required: ['project_id', 'query'],
       },
@@ -139,6 +146,8 @@ export function getTools(): Tool[] {
         properties: {
           project_id: { type: 'string', description: 'Project ID' },
           sdd_entry_id: { type: 'string', description: 'Optional entry ID to filter tasks' },
+          page: { type: 'number', description: 'Page number (1-based)' },
+          limit: { type: 'number', description: 'Items per page (max 200)' },
         },
         required: ['project_id'],
       },

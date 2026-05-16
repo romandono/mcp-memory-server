@@ -47,3 +47,13 @@ export interface Classification {
   confidence: number;
   created_at: string;
 }
+
+export interface PaginationParams {
+  page?: number;
+  limit?: number;
+}
+
+export interface PaginatedResult<T> {
+  data: T[];
+  total: number;
+}

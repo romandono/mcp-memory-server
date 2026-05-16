@@ -15,11 +15,15 @@ const CreateSchema = z.object({
 const GetSchema = z.object({
   project_id: z.string().min(1),
   section: z.enum(['plan', 'design', 'tasks', 'general']).optional(),
+  page: z.number().int().positive().optional(),
+  limit: z.number().int().positive().max(200).optional(),
 });
 
 const SearchSchema = z.object({
   project_id: z.string().min(1),
   query: z.string().min(1),
+  page: z.number().int().positive().optional(),
+  limit: z.number().int().positive().max(200).optional(),
 });
 
 export async function handleEntryCreate(input: unknown): Promise<any> {
@@ -33,14 +37,28 @@ export async function handleEntryCreate(input: unknown): Promise<any> {
 
 export async function handleEntryGet(input: unknown): Promise<any> {
   const v = GetSchema.parse(input);
-  const entries = getProjectEntries(v.project_id, v.section);
-  return { success: true, count: entries.length, entries };
+  const params = v.page || v.limit ? { page: v.page, limit: v.limit } : undefined;
+  const { data, total } = getProjectEntries(v.project_id, v.section, params);
+  const result: any = { success: true, count: data.length, entries: data };
+  if (params) {
+    const pageNum = v.page || 1;
+    const limitNum = v.limit || total;
+    result.pagination = { page: pageNum, limit: limitNum, total, totalPages: Math.ceil(total / limitNum) || 1 };
+  }
+  return result;
 }
 
 export async function handleEntrySearch(input: unknown): Promise<any> {
   const v = SearchSchema.parse(input);
-  const results = searchEntries(v.project_id, v.query);
-  return { success: true, count: results.length, results };
+  const params = v.page || v.limit ? { page: v.page, limit: v.limit } : undefined;
+  const { data, total } = searchEntries(v.project_id, v.query, params);
+  const result: any = { success: true, count: data.length, results: data };
+  if (params) {
+    const pageNum = v.page || 1;
+    const limitNum = v.limit || total;
+    result.pagination = { page: pageNum, limit: limitNum, total, totalPages: Math.ceil(total / limitNum) || 1 };
+  }
+  return result;
 }
 
 const UpdateSchema = z.object({

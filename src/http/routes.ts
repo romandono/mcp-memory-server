@@ -19,8 +19,17 @@ router.get('/health', (_req: Request, res: Response) => {
 
 // ---- PROJECTS ----
 
-router.get('/api/projects', (_req: Request, res: Response) => {
-  res.json({ success: true, projects: getAllProjects() });
+router.get('/api/projects', (req: Request, res: Response) => {
+  const page = req.query.page ? parseInt(req.query.page as string, 10) : undefined;
+  const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined;
+  const { data, total } = getAllProjects(page || limit ? { page, limit } : undefined);
+  const result: any = { success: true, projects: data };
+  if (page || limit) {
+    const pageNum = page || 1;
+    const limitNum = limit || total;
+    result.pagination = { page: pageNum, limit: limitNum, total, totalPages: Math.ceil(total / limitNum) || 1 };
+  }
+  res.json(result);
 });
 
 router.post('/api/projects', (req: Request, res: Response) => {
@@ -39,8 +48,8 @@ router.get('/api/projects/:id', (req: Request, res: Response) => {
   const project = getProject(id);
   if (!project) { res.status(404).json({ success: false, message: 'Project not found' }); return; }
 
-  const entries = getProjectEntries(id);
-  const tasks = getProjectTasks(id);
+  const { data: entries } = getProjectEntries(id);
+  const { data: tasks } = getProjectTasks(id);
   const classifications = getClassifications('project', id);
   res.json({ success: true, project, entries, tasks, classifications });
 });
@@ -64,8 +73,16 @@ router.delete('/api/projects/:id', (req: Request, res: Response) => {
 router.get('/api/projects/:pid/entries', (req: Request, res: Response) => {
   const pid = req.params.pid as string;
   const section = req.query.section as string | undefined;
-  const entries = getProjectEntries(pid, section);
-  res.json({ success: true, count: entries.length, entries });
+  const page = req.query.page ? parseInt(req.query.page as string, 10) : undefined;
+  const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined;
+  const { data, total } = getProjectEntries(pid, section, page || limit ? { page, limit } : undefined);
+  const result: any = { success: true, count: data.length, entries: data };
+  if (page || limit) {
+    const pageNum = page || 1;
+    const limitNum = limit || total;
+    result.pagination = { page: pageNum, limit: limitNum, total, totalPages: Math.ceil(total / limitNum) || 1 };
+  }
+  res.json(result);
 });
 
 router.post('/api/projects/:pid/entries', (req: Request, res: Response) => {
@@ -86,8 +103,16 @@ router.get('/api/projects/:pid/entries/search', (req: Request, res: Response) =>
   const pid = req.params.pid as string;
   const query = req.query.q as string;
   if (!query) { res.status(400).json({ success: false, message: 'query param q is required' }); return; }
-  const results = searchEntries(pid, query);
-  res.json({ success: true, count: results.length, results });
+  const page = req.query.page ? parseInt(req.query.page as string, 10) : undefined;
+  const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined;
+  const { data, total } = searchEntries(pid, query, page || limit ? { page, limit } : undefined);
+  const result: any = { success: true, count: data.length, results: data };
+  if (page || limit) {
+    const pageNum = page || 1;
+    const limitNum = limit || total;
+    result.pagination = { page: pageNum, limit: limitNum, total, totalPages: Math.ceil(total / limitNum) || 1 };
+  }
+  res.json(result);
 });
 
 router.get('/api/projects/:pid/entries/:eid', (req: Request, res: Response) => {
@@ -117,8 +142,16 @@ router.delete('/api/projects/:pid/entries/:eid', (req: Request, res: Response) =
 router.get('/api/projects/:pid/tasks', (req: Request, res: Response) => {
   const pid = req.params.pid as string;
   const entryId = req.query.entry_id as string | undefined;
-  const tasks = getProjectTasks(pid, entryId);
-  res.json({ success: true, count: tasks.length, tasks });
+  const page = req.query.page ? parseInt(req.query.page as string, 10) : undefined;
+  const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined;
+  const { data, total } = getProjectTasks(pid, entryId, page || limit ? { page, limit } : undefined);
+  const result: any = { success: true, count: data.length, tasks: data };
+  if (page || limit) {
+    const pageNum = page || 1;
+    const limitNum = limit || total;
+    result.pagination = { page: pageNum, limit: limitNum, total, totalPages: Math.ceil(total / limitNum) || 1 };
+  }
+  res.json(result);
 });
 
 router.post('/api/projects/:pid/tasks', (req: Request, res: Response) => {

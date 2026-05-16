@@ -14,6 +14,8 @@ const CreateSchema = z.object({
 const ListSchema = z.object({
   project_id: z.string().min(1),
   sdd_entry_id: z.string().optional(),
+  page: z.number().int().positive().optional(),
+  limit: z.number().int().positive().max(200).optional(),
 });
 
 const UpdateSchema = z.object({
@@ -32,8 +34,15 @@ export async function handleTaskCreate(input: unknown): Promise<any> {
 
 export async function handleTaskList(input: unknown): Promise<any> {
   const v = ListSchema.parse(input);
-  const tasks = getProjectTasks(v.project_id, v.sdd_entry_id);
-  return { success: true, count: tasks.length, tasks };
+  const params = v.page || v.limit ? { page: v.page, limit: v.limit } : undefined;
+  const { data, total } = getProjectTasks(v.project_id, v.sdd_entry_id, params);
+  const result: any = { success: true, count: data.length, tasks: data };
+  if (params) {
+    const pageNum = v.page || 1;
+    const limitNum = v.limit || total;
+    result.pagination = { page: pageNum, limit: limitNum, total, totalPages: Math.ceil(total / limitNum) || 1 };
+  }
+  return result;
 }
 
 export async function handleTaskUpdate(input: unknown): Promise<any> {

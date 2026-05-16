@@ -46,6 +46,18 @@ describe('Projects API', () => {
     expect(res.body.projects).toHaveLength(2);
   });
 
+  it('GET /api/projects?page=1&limit=1 paginates', async () => {
+    for (let i = 1; i <= 3; i++) {
+      await request(app).post('/api/projects').send({ name: `P${i}` });
+    }
+    const res = await request(app).get('/api/projects?page=1&limit=1');
+    expect(res.body.projects).toHaveLength(1);
+    expect(res.body.pagination).toBeDefined();
+    expect(res.body.pagination.page).toBe(1);
+    expect(res.body.pagination.total).toBe(3);
+    expect(res.body.pagination.totalPages).toBe(3);
+  });
+
   it('GET /api/projects/:id returns project with entries and tasks', async () => {
     const created = await request(app)
       .post('/api/projects')
@@ -123,6 +135,19 @@ describe('Entries API', () => {
     const res = await request(app)
       .get(`/api/projects/${pid}/entries`);
     expect(res.body.entries).toHaveLength(2);
+  });
+
+  it('GET /api/projects/:pid/entries?page=&limit= paginates', async () => {
+    for (let i = 1; i <= 4; i++) {
+      await request(app)
+        .post(`/api/projects/${pid}/entries`)
+        .send({ section: 'plan', title: `Entry ${i}` });
+    }
+    const res = await request(app)
+      .get(`/api/projects/${pid}/entries?page=2&limit=2`);
+    expect(res.body.entries).toHaveLength(2);
+    expect(res.body.pagination.page).toBe(2);
+    expect(res.body.pagination.total).toBe(4);
   });
 
   it('GET /api/projects/:pid/entries?section= filters', async () => {
@@ -220,6 +245,19 @@ describe('Tasks API', () => {
     const res = await request(app)
       .get(`/api/projects/${pid}/tasks`);
     expect(res.body.tasks).toHaveLength(2);
+  });
+
+  it('GET /api/projects/:pid/tasks?page=&limit= paginates', async () => {
+    for (let i = 1; i <= 3; i++) {
+      await request(app)
+        .post(`/api/projects/${pid}/tasks`)
+        .send({ title: `Task ${i}` });
+    }
+    const res = await request(app)
+      .get(`/api/projects/${pid}/tasks?page=1&limit=2`);
+    expect(res.body.tasks).toHaveLength(2);
+    expect(res.body.pagination.page).toBe(1);
+    expect(res.body.pagination.total).toBe(3);
   });
 
   it('PUT /api/projects/:pid/tasks/:tid updates status', async () => {
