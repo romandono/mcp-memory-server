@@ -1,0 +1,38 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "default_agent": "general",
+
+  "instructions": ["INFORME.md"],
+
+  "agent": {
+    "revisor": {
+      "description": "Revisa código del MCP server buscando bugs y vulnerabilidades.",
+      "mode": "subagent",
+      "model": "anthropic/claude-sonnet-4-6",
+      "permission": { "edit": "deny", "bash": { "git *": "allow", "*": "ask" } }
+    },
+    "tester": {
+      "description": "Ejecuta y escribe tests para el MCP memory server con Vitest.",
+      "mode": "subagent",
+      "permission": { "edit": "allow", "bash": "allow" }
+    }
+  },
+
+  "skills": {
+    "paths": [".opencode/skills"]
+  },
+
+  "permission": {
+    "bash": {
+      "git *": "allow",
+      "npm *": "allow",
+      "npx *": "ask",
+      "rm *": "deny",
+      "*": "ask"
+    }
+  },
+
+  "experimental": {
+    "mcp_timeout": 30000
+  }
+}
