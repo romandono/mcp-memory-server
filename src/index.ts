@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 import { initializeDatabase, closeDatabase } from './db/init.js';
 import { createMcpServer, getTools } from './server/setup.js';
 import { handleProjectCreate, handleProjectList, handleProjectGet } from './tools/project.js';
-import { handleEntryCreate, handleEntryGet, handleEntrySearch } from './tools/entry.js';
+import { handleEntryCreate, handleEntryGet, handleEntrySearch, handleEntryUpdate, handleEntryDelete } from './tools/entry.js';
 import { handleTaskCreate, handleTaskList, handleTaskUpdate } from './tools/task.js';
 import { startHttpServer } from './http/server.js';
 import {
@@ -60,6 +60,12 @@ async function main() {
             break;
           case 'entry-search':
             result = await handleEntrySearch(toolInput);
+            break;
+          case 'entry-update':
+            result = await handleEntryUpdate(toolInput);
+            break;
+          case 'entry-delete':
+            result = await handleEntryDelete(toolInput);
             break;
           case 'task-create':
             result = await handleTaskCreate(toolInput);

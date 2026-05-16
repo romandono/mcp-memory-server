@@ -90,6 +90,33 @@ export function getTools(): Tool[] {
       },
     },
     {
+      name: 'entry-update',
+      description: 'Updates an SDD entry',
+      inputSchema: {
+        type: 'object' as const,
+        properties: {
+          id: { type: 'string', description: 'Entry ID' },
+          title: { type: 'string', description: 'New title' },
+          content: { type: 'string', description: 'New content' },
+          status: { type: 'string', enum: ['draft', 'review', 'done'], description: 'New status' },
+          section: { type: 'string', enum: ['plan', 'design', 'tasks', 'general'], description: 'New section' },
+          parent_id: { type: 'string', description: 'New parent entry ID (null to clear)' },
+        },
+        required: ['id'],
+      },
+    },
+    {
+      name: 'entry-delete',
+      description: 'Deletes an SDD entry',
+      inputSchema: {
+        type: 'object' as const,
+        properties: {
+          id: { type: 'string', description: 'Entry ID' },
+        },
+        required: ['id'],
+      },
+    },
+    {
       name: 'task-create',
       description: 'Creates a task under a project, optionally linked to an SDD entry',
       inputSchema: {
