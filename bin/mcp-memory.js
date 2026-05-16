@@ -141,6 +141,26 @@ function cmdLogs() {
   process.on('SIGINT', () => { tail.kill(); process.exit(0); });
 }
 
+function cmdStdio() {
+  console.log(`[mcp-memory] Building...`);
+  try {
+    execSync('npm run build', { cwd: ROOT, stdio: 'inherit' });
+  } catch {
+    console.error('[mcp-memory] Build failed');
+    process.exit(1);
+  }
+
+  console.log(`[mcp-memory] Starting MCP stdio server...`);
+  const child = spawn('node', ['dist/index.js'], {
+    cwd: ROOT,
+    stdio: ['inherit', 'inherit', 'inherit'],
+  });
+
+  child.on('exit', (code) => {
+    process.exit(code ?? 0);
+  });
+}
+
 function cmdInfo() {
   console.log(`Project:    ${PKG.name} v${PKG.version}`);
   console.log(`Directory:  ${ROOT}`);
@@ -150,12 +170,13 @@ function cmdInfo() {
   console.log(`PID File:   ${PID_FILE}`);
   console.log('');
   console.log('Commands:');
-  console.log('  mcp-memory start    Start the server');
-  console.log('  mcp-memory stop     Stop the server');
-  console.log('  mcp-memory status   Check server status');
-  console.log('  mcp-memory restart  Restart the server');
-  console.log('  mcp-memory logs     Tail server logs');
-  console.log('  mcp-memory info     Show project info');
+  console.log('  mcp-memory start      Start the server (background)');
+  console.log('  mcp-memory stop       Stop the server');
+  console.log('  mcp-memory status     Check server status');
+  console.log('  mcp-memory restart    Restart the server');
+  console.log('  mcp-memory logs       Tail server logs');
+  console.log('  mcp-memory info       Show project info');
+  console.log('  mcp-memory stdio      Run MCP server in foreground (for opencode)');
 }
 
 const cmd = process.argv[2] || 'status';
@@ -167,8 +188,9 @@ switch (cmd) {
   case 'restart':  cmdRestart(); break;
   case 'logs':     cmdLogs(); break;
   case 'info':     cmdInfo(); break;
+  case 'stdio':    cmdStdio(); break;
   default:
     console.log(`Unknown command: ${cmd}`);
-    console.log('Usage: mcp-memory <start|stop|status|restart|logs|info>');
+    console.log('Usage: mcp-memory <start|stop|status|restart|logs|info|stdio>');
     process.exit(1);
 }

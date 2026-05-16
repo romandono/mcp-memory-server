@@ -197,6 +197,45 @@ DB_PATH=./data/memory.db  # Ruta a la base de datos
 
 ---
 
+## Configuración para opencode
+
+Para conectar este servidor MCP desde **opencode**, añade la siguiente configuración en tu `opencode.json` (global en `~/.config/opencode/opencode.jsonc` o local en la raíz del proyecto):
+
+```json
+{
+  "mcp": {
+    "mcp-memory-server": {
+      "type": "local",
+      "command": ["mcp-memory", "stdio"],
+      "enabled": true,
+      "env": {}
+    }
+  }
+}
+```
+
+> Requiere tener el paquete instalado globalmente (`npm link` en el directorio del proyecto).
+
+> **Nota:** Después de guardar los cambios, reinicia opencode para que la configuración surta efecto.
+
+### Herramientas MCP disponibles
+
+Una vez conectado, opencode tendrá acceso a estas herramientas:
+
+| Tool | Descripción |
+|------|-------------|
+| `project-create` | Crear un proyecto nuevo |
+| `project-list` | Listar todos los proyectos |
+| `project-get` | Obtener un proyecto completo con entradas y tareas |
+| `entry-create` | Crear una entrada SDD (plan/design/tasks/general) |
+| `entry-get` | Obtener entradas de un proyecto |
+| `entry-search` | Buscar entradas por texto |
+| `task-create` | Crear una tarea |
+| `task-list` | Listar tareas de un proyecto |
+| `task-update` | Actualizar estado de una tarea |
+
+---
+
 ## Tests
 
 ```bash
