@@ -146,6 +146,42 @@ export function searchEntries(projectId: string, query: string, paramsPg?: Pagin
   return { data, total };
 }
 
+export function searchAllEntries(query: string, paramsPg?: PaginationParams): PaginatedResult<SddEntry> {
+  const { limit, offset } = parsePagination(paramsPg || {});
+  const db = getDatabase();
+
+  let ftsQuery: string;
+  try {
+    ftsQuery = toFtsQuery(query);
+  } catch {
+    ftsQuery = query;
+  }
+
+  const countResult = db.prepare(`
+    SELECT COUNT(*) as count FROM fts_entries f
+    JOIN sdd_entries s ON s.id = f.entry_id
+    WHERE f.fts_entries MATCH ?
+  `).get(ftsQuery) as any;
+  const total = countResult?.count ?? 0;
+
+  let sql = `
+    SELECT s.* FROM sdd_entries s
+    JOIN fts_entries f ON f.entry_id = s.id
+    WHERE f.fts_entries MATCH ?
+    ORDER BY rank
+  `;
+  const params: any[] = [ftsQuery];
+
+  if (limit) {
+    sql += ' LIMIT ? OFFSET ?';
+    params.push(limit, offset);
+  }
+
+  const rows = db.prepare(sql).all(...params) as any[];
+  const data = rows.map(r => ({ ...r, metadata: r.metadata ? JSON.parse(r.metadata) : undefined }));
+  return { data, total };
+}
+
 // ---- TASKS ----
 
 export function createTask(task: Task): void {

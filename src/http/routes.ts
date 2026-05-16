@@ -4,7 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import {
   createProject, getProject, getAllProjects, updateProject, deleteProject,
-  createEntry, getEntry, getProjectEntries, updateEntry, deleteEntry, searchEntries,
+  createEntry, getEntry, getProjectEntries, updateEntry, deleteEntry, searchEntries, searchAllEntries,
   createTask, getTask, getProjectTasks, updateTask, deleteTask,
   addClassification, getClassifications, getAuditLog,
 } from '../db/schema.js';
@@ -97,6 +97,21 @@ router.post('/api/projects/:pid/entries', (req: Request, res: Response) => {
   const entry: SddEntry = { id, project_id: pid, section, title, content: content || '', status: status || 'draft', parent_id, created_at: now, updated_at: now };
   createEntry(entry);
   res.status(201).json({ success: true, id, message: `Entry created in ${section}` });
+});
+
+router.get('/api/entries/search', (req: Request, res: Response) => {
+  const query = req.query.q as string;
+  if (!query) { res.status(400).json({ success: false, message: 'query param q is required' }); return; }
+  const page = req.query.page ? parseInt(req.query.page as string, 10) : undefined;
+  const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined;
+  const { data, total } = searchAllEntries(query, page || limit ? { page, limit } : undefined);
+  const result: any = { success: true, count: data.length, results: data };
+  if (page || limit) {
+    const pageNum = page || 1;
+    const limitNum = limit || total;
+    result.pagination = { page: pageNum, limit: limitNum, total, totalPages: Math.ceil(total / limitNum) || 1 };
+  }
+  res.json(result);
 });
 
 router.get('/api/projects/:pid/entries/search', (req: Request, res: Response) => {

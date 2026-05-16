@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { createEntry, getEntry, getProjectEntries, searchEntries, updateEntry, deleteEntry } from '../db/schema.js';
+import { createEntry, getEntry, getProjectEntries, searchEntries, searchAllEntries, updateEntry, deleteEntry } from '../db/schema.js';
 import { SddEntry } from '../types/context.js';
 import { randomUUID } from 'crypto';
 
@@ -21,6 +21,12 @@ const GetSchema = z.object({
 
 const SearchSchema = z.object({
   project_id: z.string().min(1),
+  query: z.string().min(1),
+  page: z.number().int().positive().optional(),
+  limit: z.number().int().positive().max(200).optional(),
+});
+
+const SearchGlobalSchema = z.object({
   query: z.string().min(1),
   page: z.number().int().positive().optional(),
   limit: z.number().int().positive().max(200).optional(),
@@ -52,6 +58,19 @@ export async function handleEntrySearch(input: unknown): Promise<any> {
   const v = SearchSchema.parse(input);
   const params = v.page || v.limit ? { page: v.page, limit: v.limit } : undefined;
   const { data, total } = searchEntries(v.project_id, v.query, params);
+  const result: any = { success: true, count: data.length, results: data };
+  if (params) {
+    const pageNum = v.page || 1;
+    const limitNum = v.limit || total;
+    result.pagination = { page: pageNum, limit: limitNum, total, totalPages: Math.ceil(total / limitNum) || 1 };
+  }
+  return result;
+}
+
+export async function handleGlobalEntrySearch(input: unknown): Promise<any> {
+  const v = SearchGlobalSchema.parse(input);
+  const params = v.page || v.limit ? { page: v.page, limit: v.limit } : undefined;
+  const { data, total } = searchAllEntries(v.query, params);
   const result: any = { success: true, count: data.length, results: data };
   if (params) {
     const pageNum = v.page || 1;

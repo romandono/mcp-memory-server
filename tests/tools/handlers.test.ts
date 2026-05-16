@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { initializeDatabase, closeDatabase } from '../../src/db/init.js';
 import { handleProjectCreate, handleProjectList, handleProjectGet } from '../../src/tools/project.js';
-import { handleEntryCreate, handleEntryGet, handleEntrySearch, handleEntryUpdate, handleEntryDelete } from '../../src/tools/entry.js';
+import { handleEntryCreate, handleEntryGet, handleEntrySearch, handleGlobalEntrySearch, handleEntryUpdate, handleEntryDelete } from '../../src/tools/entry.js';
 import { handleTaskCreate, handleTaskList, handleTaskUpdate } from '../../src/tools/task.js';
 
 beforeEach(() => {
@@ -151,6 +151,29 @@ describe('entry tools', () => {
     const result = await handleEntrySearch({ project_id: pid, query: 'database' });
     expect(result.count).toBe(1);
     expect(result.results[0].title).toBe('Database Design');
+  });
+
+  it('handleGlobalEntrySearch searches across all projects', async () => {
+    const pid2 = (await handleProjectCreate({ name: 'Project 2' })).id;
+    await handleEntryCreate({ project_id: pid, section: 'plan', title: 'Database Design', content: 'SQL' });
+    await handleEntryCreate({ project_id: pid2, section: 'plan', title: 'API Design', content: 'Express' });
+    const result = await handleGlobalEntrySearch({ query: 'design' });
+    expect(result.count).toBe(2);
+  });
+
+  it('handleGlobalEntrySearch with pagination', async () => {
+    for (let i = 1; i <= 5; i++) {
+      await handleEntryCreate({ project_id: pid, section: 'plan', title: `Target ${i}` });
+    }
+    const result = await handleGlobalEntrySearch({ query: 'Target', page: 1, limit: 2 });
+    expect(result.results).toHaveLength(2);
+    expect(result.pagination).toBeDefined();
+    expect(result.pagination.total).toBe(5);
+  });
+
+  it('handleGlobalEntrySearch returns empty for no match', async () => {
+    const result = await handleGlobalEntrySearch({ query: 'zzzz' });
+    expect(result.count).toBe(0);
   });
 
   it('handleEntrySearch returns empty for no match', async () => {

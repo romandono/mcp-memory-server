@@ -164,6 +164,40 @@ describe('Entries API', () => {
     expect(res.body.entries[0].section).toBe('design');
   });
 
+  it('GET /api/entries/search finds across all projects', async () => {
+    const pid2 = (await request(app)
+      .post('/api/projects')
+      .send({ name: 'Project 2' })).body.id;
+
+    await request(app)
+      .post(`/api/projects/${pid}/entries`)
+      .send({ section: 'plan', title: 'Database Design' });
+    await request(app)
+      .post(`/api/projects/${pid2}/entries`)
+      .send({ section: 'plan', title: 'API Design' });
+
+    const res = await request(app)
+      .get('/api/entries/search?q=design');
+    expect(res.body.results).toHaveLength(2);
+  });
+
+  it('GET /api/entries/search requires query param', async () => {
+    const res = await request(app).get('/api/entries/search');
+    expect(res.status).toBe(400);
+  });
+
+  it('GET /api/entries/search with pagination', async () => {
+    for (let i = 1; i <= 3; i++) {
+      await request(app)
+        .post(`/api/projects/${pid}/entries`)
+        .send({ section: 'plan', title: `Item ${i}` });
+    }
+    const res = await request(app)
+      .get('/api/entries/search?q=Item&page=1&limit=2');
+    expect(res.body.results).toHaveLength(2);
+    expect(res.body.pagination.total).toBe(3);
+  });
+
   it('GET /api/projects/:pid/entries/search finds by text', async () => {
     await request(app)
       .post(`/api/projects/${pid}/entries`)

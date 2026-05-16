@@ -97,6 +97,19 @@ export function getTools(): Tool[] {
       },
     },
     {
+      name: 'entry-search-global',
+      description: 'Searches entries across all projects by text',
+      inputSchema: {
+        type: 'object' as const,
+        properties: {
+          query: { type: 'string', description: 'Search text' },
+          page: { type: 'number', description: 'Page number (1-based)' },
+          limit: { type: 'number', description: 'Items per page (max 200)' },
+        },
+        required: ['query'],
+      },
+    },
+    {
       name: 'entry-update',
       description: 'Updates an SDD entry',
       inputSchema: {

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { initializeDatabase, closeDatabase } from '../../src/db/init.js';
 import {
   createProject, getProject, getAllProjects, updateProject, deleteProject,
-  createEntry, getEntry, getProjectEntries, updateEntry, deleteEntry, searchEntries,
+  createEntry, getEntry, getProjectEntries, updateEntry, deleteEntry, searchEntries, searchAllEntries,
   createTask, getTask, getProjectTasks, updateTask, deleteTask,
   addClassification, getClassifications, removeClassification,
 } from '../../src/db/schema.js';
@@ -190,6 +190,30 @@ describe('Entries', () => {
     createEntry(makeEntry(project.id, { title: 'DATABASE SCHEMA', content: 'SQL tables' }));
     const { data } = searchEntries(project.id, 'database');
     expect(data).toHaveLength(1);
+  });
+
+  it('FTS5 searchAllEntries searches across all projects', () => {
+    const p1 = makeProject({ name: 'P1' });
+    const p2 = makeProject({ name: 'P2' });
+    createProject(p1);
+    createProject(p2);
+    createEntry(makeEntry(p1.id, { title: 'Database Design', content: 'SQL schema' }));
+    createEntry(makeEntry(p2.id, { title: 'API Design', content: 'Express endpoints' }));
+    createEntry(makeEntry(p2.id, { title: 'Other', content: 'irrelevant' }));
+    const { data, total } = searchAllEntries('design');
+    expect(total).toBe(2);
+    expect(data).toHaveLength(2);
+  });
+
+  it('FTS5 searchAllEntries with pagination', () => {
+    const project = makeProject();
+    createProject(project);
+    for (let i = 1; i <= 5; i++) {
+      createEntry(makeEntry(project.id, { title: `Target ${i}`, content: 'searchable' }));
+    }
+    const { data, total } = searchAllEntries('searchable', { page: 2, limit: 2 });
+    expect(data).toHaveLength(2);
+    expect(total).toBe(5);
   });
 
   it('FTS5 search with partial prefix', () => {
