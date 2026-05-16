@@ -1,0 +1,49 @@
+{
+  "name": "mcp-memory-server",
+  "version": "1.0.0",
+  "description": "Servidor MCP para almacenar contexto de IA en SQLite local",
+  "main": "dist/index.js",
+  "type": "module",
+  "bin": {
+    "mcp-memory": "./bin/mcp-memory.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "start:bg": "node bin/mcp-memory.js start",
+    "stop": "node bin/mcp-memory.js stop",
+    "status": "node bin/mcp-memory.js status",
+    "restart": "node bin/mcp-memory.js restart",
+    "dev": "ts-node src/index.ts",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "postinstall": "node bin/mcp-memory.js info"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "sqlite",
+    "ai-context",
+    "memory-server"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "better-sqlite3": "^9.2.0",
+    "dotenv": "^16.4.5",
+    "express": "^5.2.1",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.8",
+    "@types/express": "^5.0.6",
+    "@types/node": "^20.10.6",
+    "@types/supertest": "^7.2.0",
+    "supertest": "^7.2.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3",
+    "vitest": "^4.1.6"
+  }
+}
