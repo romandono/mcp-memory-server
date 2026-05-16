@@ -34,6 +34,7 @@ export function startHttpServer(): http.Server {
     console.log(`[HTTP]   POST   /api/projects/:pid/tasks`);
     console.log(`[HTTP]   PUT    /api/projects/:pid/tasks/:tid`);
     console.log(`[HTTP]   DELETE /api/projects/:pid/tasks/:tid`);
+    console.log(`[HTTP]   GET    /api/audit`);
     console.log(`[HTTP]   GET    /api/db/download`);
     console.log(`[HTTP]   POST   /api/classify`);
   });

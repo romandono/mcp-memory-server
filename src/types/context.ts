@@ -4,6 +4,8 @@ export type EntryStatus = 'draft' | 'review' | 'done';
 export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
 export type TaskPriority = 'low' | 'medium' | 'high' | 'critical';
 export type ClassifiableType = 'project' | 'entry' | 'task';
+export type AuditAction = 'created' | 'updated' | 'deleted';
+export type AuditEntityType = 'entry' | 'task';
 
 export interface Project {
   id: string;
@@ -46,6 +48,16 @@ export interface Classification {
   tag: string;
   confidence: number;
   created_at: string;
+}
+
+export interface AuditLogEntry {
+  id: string;
+  entity_type: AuditEntityType;
+  entity_id: string;
+  action: AuditAction;
+  changes: string;
+  project_id: string;
+  timestamp: string;
 }
 
 export interface PaginationParams {

@@ -1,5 +1,5 @@
 import { getDatabase } from './init.js';
-import { Project, SddEntry, Task, Classification, PaginationParams, PaginatedResult } from '../types/context.js';
+import { Project, SddEntry, Task, Classification, AuditLogEntry, PaginationParams, PaginatedResult } from '../types/context.js';
 import { toFtsQuery } from './migrations/runner.js';
 
 function parsePagination(params: PaginationParams): { limit: number; offset: number } {
@@ -199,6 +199,48 @@ export function updateTask(id: string, updates: Partial<Task>): void {
 
 export function deleteTask(id: string): void {
   getDatabase().prepare('DELETE FROM tasks WHERE id = ?').run(id);
+}
+
+// ---- AUDIT LOG ----
+
+export function getAuditLog(filters?: { entity_type?: string; entity_id?: string; project_id?: string }, paramsPg?: PaginationParams): PaginatedResult<AuditLogEntry> {
+  const { limit, offset } = parsePagination(paramsPg || {});
+  const db = getDatabase();
+
+  let countSql = 'SELECT COUNT(*) as count FROM audit_log WHERE 1=1';
+  let dataSql = 'SELECT * FROM audit_log WHERE 1=1';
+  const countParams: any[] = [];
+  const dataParams: any[] = [];
+
+  if (filters?.entity_type) {
+    countSql += ' AND entity_type = ?';
+    dataSql += ' AND entity_type = ?';
+    countParams.push(filters.entity_type);
+    dataParams.push(filters.entity_type);
+  }
+  if (filters?.entity_id) {
+    countSql += ' AND entity_id = ?';
+    dataSql += ' AND entity_id = ?';
+    countParams.push(filters.entity_id);
+    dataParams.push(filters.entity_id);
+  }
+  if (filters?.project_id) {
+    countSql += ' AND project_id = ?';
+    dataSql += ' AND project_id = ?';
+    countParams.push(filters.project_id);
+    dataParams.push(filters.project_id);
+  }
+
+  const total = (db.prepare(countSql).get(...countParams) as any).count;
+  dataSql += ' ORDER BY timestamp DESC';
+
+  if (limit) {
+    dataSql += ' LIMIT ? OFFSET ?';
+    dataParams.push(limit, offset);
+  }
+
+  const data = db.prepare(dataSql).all(...dataParams) as AuditLogEntry[];
+  return { data, total };
 }
 
 // ---- CLASSIFICATIONS ----

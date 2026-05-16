@@ -6,7 +6,7 @@ import {
   createProject, getProject, getAllProjects, updateProject, deleteProject,
   createEntry, getEntry, getProjectEntries, updateEntry, deleteEntry, searchEntries,
   createTask, getTask, getProjectTasks, updateTask, deleteTask,
-  addClassification, getClassifications, removeClassification,
+  addClassification, getClassifications, removeClassification, getAuditLog,
 } from '../db/schema.js';
 import { getDbPath } from '../db/init.js';
 import { Project, SddEntry, Task, Classification } from '../types/context.js';
@@ -191,6 +191,27 @@ router.get('/api/db/download', (req: Request, res: Response) => {
   res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
   const stream = fs.createReadStream(dbPath);
   stream.pipe(res);
+});
+
+// ---- AUDIT LOG ----
+
+router.get('/api/audit', (req: Request, res: Response) => {
+  const entity_type = req.query.entity_type as string | undefined;
+  const entity_id = req.query.entity_id as string | undefined;
+  const project_id = req.query.project_id as string | undefined;
+  const page = req.query.page ? parseInt(req.query.page as string, 10) : undefined;
+  const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined;
+  const { data, total } = getAuditLog(
+    { entity_type, entity_id, project_id },
+    page || limit ? { page, limit } : undefined,
+  );
+  const result: any = { success: true, count: data.length, entries: data };
+  if (page || limit) {
+    const pageNum = page || 1;
+    const limitNum = limit || total;
+    result.pagination = { page: pageNum, limit: limitNum, total, totalPages: Math.ceil(total / limitNum) || 1 };
+  }
+  res.json(result);
 });
 
 // ---- CLASSIFICATIONS ----

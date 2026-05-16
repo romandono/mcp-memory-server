@@ -6,6 +6,7 @@ import { createMcpServer, getTools } from './server/setup.js';
 import { handleProjectCreate, handleProjectList, handleProjectGet } from './tools/project.js';
 import { handleEntryCreate, handleEntryGet, handleEntrySearch, handleEntryUpdate, handleEntryDelete } from './tools/entry.js';
 import { handleTaskCreate, handleTaskList, handleTaskUpdate } from './tools/task.js';
+import { handleAuditGet } from './tools/audit.js';
 import { startHttpServer } from './http/server.js';
 import {
   CallToolRequestSchema,
@@ -75,6 +76,9 @@ async function main() {
             break;
           case 'task-update':
             result = await handleTaskUpdate(toolInput);
+            break;
+          case 'audit-get':
+            result = await handleAuditGet(toolInput);
             break;
           default:
             throw new Error(`Unknown tool: ${toolName}`);

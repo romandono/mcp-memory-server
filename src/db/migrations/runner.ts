@@ -112,6 +112,70 @@ const migrations: Migration[] = [
       }
     },
   },
+  {
+    name: '003_add_audit_log',
+    up(db) {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS audit_log (
+          id TEXT PRIMARY KEY,
+          entity_type TEXT NOT NULL CHECK(entity_type IN ('entry','task')),
+          entity_id TEXT NOT NULL,
+          action TEXT NOT NULL CHECK(action IN ('created','updated','deleted')),
+          changes TEXT,
+          project_id TEXT,
+          timestamp TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_log(entity_type, entity_id);
+        CREATE INDEX IF NOT EXISTS idx_audit_project ON audit_log(project_id);
+        CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_log(timestamp);
+
+        CREATE TRIGGER IF NOT EXISTS audit_entries_ai AFTER INSERT ON sdd_entries BEGIN
+          INSERT INTO audit_log (id, entity_type, entity_id, action, changes, project_id, timestamp)
+          VALUES (lower(hex(randomblob(16))), 'entry', new.id, 'created',
+            json_object('title', new.title, 'content', new.content, 'section', new.section, 'status', new.status),
+            new.project_id, new.created_at);
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS audit_entries_au AFTER UPDATE ON sdd_entries BEGIN
+          INSERT INTO audit_log (id, entity_type, entity_id, action, changes, project_id, timestamp)
+          VALUES (lower(hex(randomblob(16))), 'entry', old.id, 'updated',
+            json_object('old', json_object('title', old.title, 'content', old.content, 'section', old.section, 'status', old.status),
+                        'new', json_object('title', new.title, 'content', new.content, 'section', new.section, 'status', new.status)),
+            new.project_id, new.updated_at);
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS audit_entries_ad AFTER DELETE ON sdd_entries BEGIN
+          INSERT INTO audit_log (id, entity_type, entity_id, action, changes, project_id, timestamp)
+          VALUES (lower(hex(randomblob(16))), 'entry', old.id, 'deleted',
+            json_object('title', old.title),
+            old.project_id, datetime('now'));
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS audit_tasks_ai AFTER INSERT ON tasks BEGIN
+          INSERT INTO audit_log (id, entity_type, entity_id, action, changes, project_id, timestamp)
+          VALUES (lower(hex(randomblob(16))), 'task', new.id, 'created',
+            json_object('title', new.title, 'status', new.status, 'priority', new.priority),
+            new.project_id, new.created_at);
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS audit_tasks_au AFTER UPDATE ON tasks BEGIN
+          INSERT INTO audit_log (id, entity_type, entity_id, action, changes, project_id, timestamp)
+          VALUES (lower(hex(randomblob(16))), 'task', old.id, 'updated',
+            json_object('old', json_object('title', old.title, 'status', old.status, 'priority', old.priority),
+                        'new', json_object('title', new.title, 'status', new.status, 'priority', new.priority)),
+            new.project_id, new.updated_at);
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS audit_tasks_ad AFTER DELETE ON tasks BEGIN
+          INSERT INTO audit_log (id, entity_type, entity_id, action, changes, project_id, timestamp)
+          VALUES (lower(hex(randomblob(16))), 'task', old.id, 'deleted',
+            json_object('title', old.title),
+            old.project_id, datetime('now'));
+        END;
+      `);
+    },
+  },
 ];
 
 function ensureMigrationsTable(db: Database.Database): void {

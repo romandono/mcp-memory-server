@@ -164,5 +164,19 @@ export function getTools(): Tool[] {
         required: ['id', 'status'],
       },
     },
+    {
+      name: 'audit-get',
+      description: 'Gets audit log entries for an entity or project',
+      inputSchema: {
+        type: 'object' as const,
+        properties: {
+          entity_type: { type: 'string', enum: ['entry', 'task'], description: 'Filter by entity type' },
+          entity_id: { type: 'string', description: 'Filter by entity ID' },
+          project_id: { type: 'string', description: 'Filter by project ID' },
+          page: { type: 'number', description: 'Page number (1-based)' },
+          limit: { type: 'number', description: 'Items per page (max 200)' },
+        },
+      },
+    },
   ];
 }
