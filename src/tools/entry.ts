@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { createEntry, getEntry, getProjectEntries, searchEntries, updateEntry, deleteEntry, getClassifications } from '../db/schema.js';
+import { createEntry, getEntry, getProjectEntries, searchEntries, updateEntry, deleteEntry } from '../db/schema.js';
 import { SddEntry } from '../types/context.js';
 import { randomUUID } from 'crypto';
 

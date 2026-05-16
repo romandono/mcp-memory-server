@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { initializeDatabase, closeDatabase, getDatabase } from '../../src/db/init.js';
+import { initializeDatabase, closeDatabase } from '../../src/db/init.js';
 import {
   createProject, getProject, getAllProjects, updateProject, deleteProject,
   createEntry, getEntry, getProjectEntries, updateEntry, deleteEntry, searchEntries,

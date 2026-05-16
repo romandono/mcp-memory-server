@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { initializeDatabase, closeDatabase } from '../../src/db/init.js';
-import { createProject } from '../../src/db/schema.js';
 import { handleProjectCreate, handleProjectList, handleProjectGet } from '../../src/tools/project.js';
 import { handleEntryCreate, handleEntryGet, handleEntrySearch, handleEntryUpdate, handleEntryDelete } from '../../src/tools/entry.js';
 import { handleTaskCreate, handleTaskList, handleTaskUpdate } from '../../src/tools/task.js';

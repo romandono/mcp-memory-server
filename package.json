@@ -16,6 +16,10 @@
     "restart": "node bin/mcp-memory.js restart",
     "dev": "ts-node src/index.ts",
     "type-check": "tsc --noEmit",
+    "lint": "eslint src/ tests/",
+    "lint:fix": "eslint src/ tests/ --fix",
+    "format": "prettier --check src/ tests/",
+    "format:fix": "prettier --write src/ tests/",
     "test": "vitest run",
     "test:watch": "vitest",
     "postinstall": "node bin/mcp-memory.js info"
@@ -37,13 +41,19 @@
     "zod": "^4.0.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/better-sqlite3": "^7.6.8",
     "@types/express": "^5.0.6",
     "@types/node": "^20.10.6",
     "@types/supertest": "^7.2.0",
+    "eslint": "^10.4.0",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.6.0",
+    "prettier": "^3.8.3",
     "supertest": "^7.2.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3",
+    "typescript-eslint": "^8.59.3",
     "vitest": "^4.1.6"
   }
 }

@@ -6,7 +6,7 @@ import {
   createProject, getProject, getAllProjects, updateProject, deleteProject,
   createEntry, getEntry, getProjectEntries, updateEntry, deleteEntry, searchEntries,
   createTask, getTask, getProjectTasks, updateTask, deleteTask,
-  addClassification, getClassifications, removeClassification, getAuditLog,
+  addClassification, getClassifications, getAuditLog,
 } from '../db/schema.js';
 import { getDbPath } from '../db/init.js';
 import { Project, SddEntry, Task, Classification } from '../types/context.js';
@@ -184,7 +184,7 @@ router.delete('/api/projects/:pid/tasks/:tid', (req: Request, res: Response) => 
 
 // ---- DATABASE DOWNLOAD ----
 
-router.get('/api/db/download', (req: Request, res: Response) => {
+router.get('/api/db/download', (_req: Request, res: Response) => {
   const dbPath = getDbPath();
   const filename = path.basename(dbPath);
   res.setHeader('Content-Type', 'application/x-sqlite3');
