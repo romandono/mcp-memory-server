@@ -180,6 +180,8 @@ El servidor expone estas herramientas vía MCP (STDIO):
 | `entry-create` | Crear entrada SDD (plan/design/tasks/general) |
 | `entry-get` | Listar entradas de un proyecto |
 | `entry-search` | Buscar entradas por texto |
+| `entry-update` | Actualizar entrada (title, content, status, section, parent_id) |
+| `entry-delete` | Eliminar entrada |
 | `task-create` | Crear tarea |
 | `task-list` | Listar tareas de un proyecto |
 | `task-update` | Actualizar estado de tarea |
@@ -230,6 +232,8 @@ Una vez conectado, opencode tendrá acceso a estas herramientas:
 | `entry-create` | Crear una entrada SDD (plan/design/tasks/general) |
 | `entry-get` | Obtener entradas de un proyecto |
 | `entry-search` | Buscar entradas por texto |
+| `entry-update` | Actualizar una entrada (title, content, status, section, parent_id) |
+| `entry-delete` | Eliminar una entrada |
 | `task-create` | Crear una tarea |
 | `task-list` | Listar tareas de un proyecto |
 | `task-update` | Actualizar estado de una tarea |
