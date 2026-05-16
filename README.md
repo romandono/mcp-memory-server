@@ -43,18 +43,32 @@ projects
  │    ├── title, description
  │    └── status, priority
  │
-  ├── classifications (polymorphic)
-  │    ├── classifiable_type (project | entry | task)
-  │    └── tag, confidence
-  │
-  ├── audit_log
-  │    ├── id, entity_type, entity_id
-  │    ├── action (created | updated | deleted)
-  │    └── changes (JSON), project_id, timestamp
-  │
-  └── fts_entries (FTS5 virtual table)
-       ├── entry_id, section, title, content
-       └── auto-sincronizada via triggers
+   ├── file_changes
+   │    ├── id, entry_id
+   │    ├── file_path, change_type (added|modified|removed)
+   │    └── line_start, line_end, summary
+   │
+   ├── design_decisions
+   │    ├── id, entry_id
+   │    ├── decision, rationale
+   │    └── alternatives_considered
+   │
+   ├── entry_relationships
+   │    ├── id, source_entry_id, target_entry_id
+   │    └── relationship_type (depends_on|implements|related_to|supersedes)
+   │
+   ├── classifications (polymorphic)
+   │    ├── classifiable_type (project | entry | task)
+   │    └── tag, confidence
+   │
+   ├── audit_log
+   │    ├── id, entity_type, entity_id
+   │    ├── action (created | updated | deleted)
+   │    └── changes (JSON), project_id, timestamp
+   │
+   └── fts_entries (FTS5 virtual table)
+        ├── entry_id, section, title, content
+        └── auto-sincronizada via triggers
 
 _migrations (tracking de cambios de schema)
 ```
@@ -158,12 +172,27 @@ DELETE /api/projects/:id                          → Eliminar proyecto (cascade
 #### Entradas SDD
 
 ```
-GET    /api/projects/:pid/entries                 → Listar entradas (?section=&page=&limit=)
-POST   /api/projects/:pid/entries                 → Crear entrada { section, title, content? }
-GET    /api/projects/:pid/entries/search?q=texto  → Buscar entradas (FTS5, ?page=&limit=)
-GET    /api/projects/:pid/entries/:eid            → Obtener entrada + clasificaciones
-PUT    /api/projects/:pid/entries/:eid            → Actualizar entrada
-DELETE /api/projects/:pid/entries/:eid            → Eliminar entrada
+GET    /api/projects/:pid/entries                     → Listar entradas (?section=&page=&limit=)
+POST   /api/projects/:pid/entries                     → Crear entrada { section, title, content? }
+GET    /api/projects/:pid/entries/search?q=texto      → Buscar entradas en el proyecto (FTS5, ?page=&limit=)
+GET    /api/projects/:pid/entries/:eid                → Obtener entrada + clasificaciones
+PUT    /api/projects/:pid/entries/:eid                → Actualizar entrada
+DELETE /api/projects/:pid/entries/:eid                → Eliminar entrada
+```
+
+#### Búsqueda global
+
+```
+GET    /api/entries/search?q=texto                    → Buscar entradas en todos los proyectos (FTS5, ?page=&limit=)
+```
+
+#### Contexto enriquecido
+
+```
+GET    /api/entries/:eid/context                      → Entry + file_changes + decisions + relationships
+POST   /api/entries/:eid/file-changes                 → Registrar cambio de archivo { file_path, change_type, summary, line_start?, line_end? }
+POST   /api/entries/:eid/decisions                    → Registrar decisión de diseño { decision, rationale, alternatives_considered? }
+POST   /api/entries/:eid/relationships                → Relacionar entries { target_entry_id, relationship_type }
 ```
 
 #### Tareas
@@ -200,8 +229,13 @@ El servidor expone estas herramientas vía MCP (STDIO):
 | `entry-create` | Crear entrada SDD (plan/design/tasks/general) |
 | `entry-get` | Listar entradas de un proyecto (con paginación opcional) |
 | `entry-search` | Buscar entradas por texto (FTS5, con paginación opcional) |
+| `entry-search-global` | Buscar entradas en todos los proyectos (FTS5, sin project_id) |
 | `entry-update` | Actualizar entrada (title, content, status, section, parent_id) |
 | `entry-delete` | Eliminar entrada |
+| `entry-add-file-change` | Registrar archivo modificado en una entrada |
+| `entry-add-decision` | Registrar decisión de diseño |
+| `entry-add-relationship` | Relacionar dos entradas |
+| `entry-get-context` | Obtener entrada + file_changes + decisions + relationships |
 | `task-create` | Crear tarea |
 | `task-list` | Listar tareas de un proyecto (con paginación opcional) |
 | `task-update` | Actualizar estado de tarea |
@@ -253,8 +287,13 @@ Una vez conectado, opencode tendrá acceso a estas herramientas:
 | `entry-create` | Crear una entrada SDD (plan/design/tasks/general) |
 | `entry-get` | Obtener entradas de un proyecto |
 | `entry-search` | Buscar entradas por texto (FTS5) |
+| `entry-search-global` | Buscar entradas en todos los proyectos |
 | `entry-update` | Actualizar una entrada (title, content, status, section, parent_id) |
 | `entry-delete` | Eliminar una entrada |
+| `entry-add-file-change` | Registrar archivo modificado en una entrada |
+| `entry-add-decision` | Registrar decisión de diseño |
+| `entry-add-relationship` | Relacionar dos entradas |
+| `entry-get-context` | Obtener entrada + file_changes + decisions + relationships |
 | `task-create` | Crear una tarea |
 | `task-list` | Listar tareas de un proyecto |
 | `task-update` | Actualizar estado de una tarea |
@@ -265,7 +304,7 @@ Una vez conectado, opencode tendrá acceso a estas herramientas:
 ## Tests y calidad
 
 ```bash
-npm test             # Ejecutar tests (Vitest, 90+ tests)
+npm test             # Ejecutar tests (Vitest, 118+ tests)
 npm run test:watch   # Modo watch
 npm run lint         # ESLint
 npm run lint:fix     # ESLint con auto-fix
@@ -285,6 +324,7 @@ El schema de la base de datos se gestiona mediante migraciones numeradas en `src
 | `001_initial_schema` | Tablas base: projects, sdd_entries, tasks, classifications |
 | `002_add_fts5` | Búsqueda de texto completo (FTS5) con sincronización automática |
 | `003_add_audit_log` | Auditoría de cambios con triggers en entries y tasks |
+| `004_add_context_tables` | Tablas de contexto enriquecido: file_changes, design_decisions, entry_relationships |
 
 Las migraciones se aplican automáticamente al iniciar el servidor.  
 La tabla `_migrations` registra cuáles se han ejecutado.
