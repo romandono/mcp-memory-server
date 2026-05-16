@@ -5,6 +5,17 @@ export interface Migration {
   up: (db: Database.Database) => void;
 }
 
+function toFtsQuery(input: string): string {
+  return input
+    .replace(/['"()|]/g, '')
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(w => `"${w}"*`)
+    .join(' ');
+}
+
+export { toFtsQuery };
+
 const migrations: Migration[] = [
   {
     name: '001_initial_schema',
@@ -64,6 +75,41 @@ const migrations: Migration[] = [
         CREATE INDEX IF NOT EXISTS idx_classifications_target ON classifications(classifiable_type, classifiable_id);
         CREATE INDEX IF NOT EXISTS idx_classifications_tag ON classifications(tag);
       `);
+    },
+  },
+  {
+    name: '002_add_fts5',
+    up(db) {
+      db.exec(`
+        CREATE VIRTUAL TABLE IF NOT EXISTS fts_entries USING fts5(
+          entry_id UNINDEXED,
+          section,
+          title,
+          content
+        );
+
+        CREATE TRIGGER IF NOT EXISTS fts_entries_ai AFTER INSERT ON sdd_entries BEGIN
+          INSERT INTO fts_entries(entry_id, section, title, content) VALUES (new.id, new.section, new.title, new.content);
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS fts_entries_ad AFTER DELETE ON sdd_entries BEGIN
+          DELETE FROM fts_entries WHERE entry_id = old.id;
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS fts_entries_au AFTER UPDATE ON sdd_entries BEGIN
+          DELETE FROM fts_entries WHERE entry_id = old.id;
+          INSERT INTO fts_entries(entry_id, section, title, content) VALUES (new.id, new.section, new.title, new.content);
+        END;
+      `);
+
+      const count = (db.prepare('SELECT COUNT(*) as c FROM sdd_entries').get() as any).c;
+      if (count > 0) {
+        db.prepare(`
+          INSERT INTO fts_entries(entry_id, section, title, content)
+          SELECT id, section, title, content FROM sdd_entries
+        `).run();
+        console.log(`[MIGRATION] Indexed ${count} existing entries in FTS5`);
+      }
     },
   },
 ];

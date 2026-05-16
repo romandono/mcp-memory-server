@@ -60,10 +60,12 @@ describe('Migrations', () => {
   it('is idempotent when called multiple times', () => {
     const db = getDatabase();
 
+    const countBefore = (db.prepare('SELECT COUNT(*) as c FROM _migrations').get() as any).c;
+
     runMigrations(db);
     runMigrations(db);
 
-    const count = (db.prepare('SELECT COUNT(*) as c FROM _migrations').get() as any).c;
-    expect(count).toBe(1);
+    const countAfter = (db.prepare('SELECT COUNT(*) as c FROM _migrations').get() as any).c;
+    expect(countAfter).toBe(countBefore);
   });
 });

@@ -175,6 +175,31 @@ describe('Entries', () => {
     expect(total).toBe(1);
     expect(data[0].title).toBe('Database Design');
   });
+
+  it('FTS5 search finds by content text', () => {
+    const project = makeProject();
+    createProject(project);
+    createEntry(makeEntry(project.id, { title: 'Setup', content: 'Express endpoints and middleware configuration' }));
+    const { data } = searchEntries(project.id, 'middleware');
+    expect(data).toHaveLength(1);
+  });
+
+  it('FTS5 search is case-insensitive', () => {
+    const project = makeProject();
+    createProject(project);
+    createEntry(makeEntry(project.id, { title: 'DATABASE SCHEMA', content: 'SQL tables' }));
+    const { data } = searchEntries(project.id, 'database');
+    expect(data).toHaveLength(1);
+  });
+
+  it('FTS5 search with partial prefix', () => {
+    const project = makeProject();
+    createProject(project);
+    createEntry(makeEntry(project.id, { title: 'Database Design', content: 'SQL schema design' }));
+    createEntry(makeEntry(project.id, { title: 'API Routes', content: 'Express endpoints' }));
+    const { data } = searchEntries(project.id, 'datab');
+    expect(data).toHaveLength(1);
+  });
 });
 
 // ---- TASKS ----

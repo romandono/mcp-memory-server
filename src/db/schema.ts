@@ -1,5 +1,6 @@
 import { getDatabase } from './init.js';
 import { Project, SddEntry, Task, Classification, PaginationParams, PaginatedResult } from '../types/context.js';
+import { toFtsQuery } from './migrations/runner.js';
 
 function parsePagination(params: PaginationParams): { limit: number; offset: number } {
   const limit = params.limit && params.limit > 0 ? Math.min(params.limit, 200) : 0;
@@ -112,14 +113,28 @@ export function deleteEntry(id: string): void {
 export function searchEntries(projectId: string, query: string, paramsPg?: PaginationParams): PaginatedResult<SddEntry> {
   const { limit, offset } = parsePagination(paramsPg || {});
   const db = getDatabase();
-  const term = `%${query}%`;
 
-  const total = (db.prepare(`
-    SELECT COUNT(*) as count FROM sdd_entries WHERE project_id = ? AND (title LIKE ? OR content LIKE ?)
-  `).get(projectId, term, term) as any).count;
+  let ftsQuery: string;
+  try {
+    ftsQuery = toFtsQuery(query);
+  } catch {
+    ftsQuery = query;
+  }
 
-  let sql = 'SELECT * FROM sdd_entries WHERE project_id = ? AND (title LIKE ? OR content LIKE ?) ORDER BY created_at ASC';
-  const params: any[] = [projectId, term, term];
+  const countResult = db.prepare(`
+    SELECT COUNT(*) as count FROM fts_entries f
+    JOIN sdd_entries s ON s.id = f.entry_id
+    WHERE s.project_id = ? AND f.fts_entries MATCH ?
+  `).get(projectId, ftsQuery) as any;
+  const total = countResult?.count ?? 0;
+
+  let sql = `
+    SELECT s.* FROM sdd_entries s
+    JOIN fts_entries f ON f.entry_id = s.id
+    WHERE s.project_id = ? AND f.fts_entries MATCH ?
+    ORDER BY rank
+  `;
+  const params: any[] = [projectId, ftsQuery];
 
   if (limit) {
     sql += ' LIMIT ? OFFSET ?';
