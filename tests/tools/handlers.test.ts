@@ -3,6 +3,7 @@ import { initializeDatabase, closeDatabase } from '../../src/db/init.js';
 import { handleProjectCreate, handleProjectList, handleProjectGet } from '../../src/tools/project.js';
 import { handleEntryCreate, handleEntryGet, handleEntrySearch, handleGlobalEntrySearch, handleEntryUpdate, handleEntryDelete } from '../../src/tools/entry.js';
 import { handleTaskCreate, handleTaskList, handleTaskUpdate } from '../../src/tools/task.js';
+import { handleAddFileChange, handleAddDecision, handleAddRelationship, handleGetEntryContext } from '../../src/tools/context.js';
 
 beforeEach(() => {
   initializeDatabase(':memory:');
@@ -208,6 +209,84 @@ describe('entry tools', () => {
     const result = await handleEntryDelete({ id: 'bad' });
     expect(result.success).toBe(false);
     expect(result.message).toContain('not found');
+  });
+});
+
+describe('context tools', () => {
+  let pid: string;
+  let eid: string;
+
+  beforeEach(async () => {
+    const p = await handleProjectCreate({ name: 'Ctx Project' });
+    pid = p.id;
+    eid = (await handleEntryCreate({ project_id: pid, section: 'plan', title: 'Test Entry' })).id;
+  });
+
+  it('handleAddFileChange records a file change', async () => {
+    const result = await handleAddFileChange({
+      entry_id: eid, file_path: 'src/foo.ts', change_type: 'modified',
+      line_start: 10, line_end: 25, summary: 'Added feature',
+    });
+    expect(result.success).toBe(true);
+    expect(result.id).toBeDefined();
+  });
+
+  it('handleAddFileChange rejects non-existent entry', async () => {
+    const result = await handleAddFileChange({
+      entry_id: 'bad', file_path: 'src/foo.ts', change_type: 'modified', summary: 'x',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('handleAddFileChange rejects missing fields', async () => {
+    await expect(handleAddFileChange({ entry_id: eid })).rejects.toThrow();
+  });
+
+  it('handleAddDecision records a decision', async () => {
+    const result = await handleAddDecision({
+      entry_id: eid, decision: 'Use FTS5', rationale: 'Fast search',
+      alternatives_considered: 'LIKE',
+    });
+    expect(result.success).toBe(true);
+    expect(result.message).toContain('Use FTS5');
+  });
+
+  it('handleAddDecision rejects non-existent entry', async () => {
+    const result = await handleAddDecision({
+      entry_id: 'bad', decision: 'x', rationale: 'y',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('handleAddRelationship links two entries', async () => {
+    const eid2 = (await handleEntryCreate({ project_id: pid, section: 'plan', title: 'Other' })).id;
+    const result = await handleAddRelationship({
+      source_entry_id: eid, target_entry_id: eid2, relationship_type: 'depends_on',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('handleAddRelationship rejects non-existent source', async () => {
+    const result = await handleAddRelationship({
+      source_entry_id: 'bad', target_entry_id: eid, relationship_type: 'related_to',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('handleGetEntryContext returns full context', async () => {
+    await handleAddFileChange({ entry_id: eid, file_path: 'src/bar.ts', change_type: 'added', summary: 'New' });
+    await handleAddDecision({ entry_id: eid, decision: 'Use SQLite', rationale: 'Embedded' });
+    const result = await handleGetEntryContext({ entry_id: eid });
+    expect(result.success).toBe(true);
+    expect(result.context.entry.title).toBe('Test Entry');
+    expect(result.context.fileChanges).toHaveLength(1);
+    expect(result.context.decisions).toHaveLength(1);
+    expect(result.context.relationships).toHaveLength(0);
+  });
+
+  it('handleGetEntryContext returns not found', async () => {
+    const result = await handleGetEntryContext({ entry_id: 'nonexistent' });
+    expect(result.success).toBe(false);
   });
 });
 

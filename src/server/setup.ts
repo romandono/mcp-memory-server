@@ -110,6 +110,60 @@ export function getTools(): Tool[] {
       },
     },
     {
+      name: 'entry-add-file-change',
+      description: 'Records a file change associated with an SDD entry',
+      inputSchema: {
+        type: 'object' as const,
+        properties: {
+          entry_id: { type: 'string', description: 'Entry ID' },
+          file_path: { type: 'string', description: 'Path to the file that changed' },
+          change_type: { type: 'string', enum: ['added', 'modified', 'removed'], description: 'Type of change' },
+          line_start: { type: 'number', description: 'Start line number (optional)' },
+          line_end: { type: 'number', description: 'End line number (optional)' },
+          summary: { type: 'string', description: 'Brief summary of what changed' },
+        },
+        required: ['entry_id', 'file_path', 'change_type', 'summary'],
+      },
+    },
+    {
+      name: 'entry-add-decision',
+      description: 'Records a design decision for an SDD entry',
+      inputSchema: {
+        type: 'object' as const,
+        properties: {
+          entry_id: { type: 'string', description: 'Entry ID' },
+          decision: { type: 'string', description: 'The decision made' },
+          rationale: { type: 'string', description: 'Why this decision was made' },
+          alternatives_considered: { type: 'string', description: 'Alternatives considered (optional)' },
+        },
+        required: ['entry_id', 'decision', 'rationale'],
+      },
+    },
+    {
+      name: 'entry-add-relationship',
+      description: 'Creates a relationship between two SDD entries',
+      inputSchema: {
+        type: 'object' as const,
+        properties: {
+          source_entry_id: { type: 'string', description: 'Source entry ID' },
+          target_entry_id: { type: 'string', description: 'Target entry ID' },
+          relationship_type: { type: 'string', enum: ['depends_on', 'implements', 'related_to', 'supersedes'], description: 'Type of relationship' },
+        },
+        required: ['source_entry_id', 'target_entry_id', 'relationship_type'],
+      },
+    },
+    {
+      name: 'entry-get-context',
+      description: 'Gets full context for an entry (entry + file changes + decisions + relationships)',
+      inputSchema: {
+        type: 'object' as const,
+        properties: {
+          entry_id: { type: 'string', description: 'Entry ID' },
+        },
+        required: ['entry_id'],
+      },
+    },
+    {
       name: 'entry-update',
       description: 'Updates an SDD entry',
       inputSchema: {

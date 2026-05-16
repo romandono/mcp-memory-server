@@ -60,6 +60,44 @@ export interface AuditLogEntry {
   timestamp: string;
 }
 
+export type FileChangeType = 'added' | 'modified' | 'removed';
+export type RelationshipType = 'depends_on' | 'implements' | 'related_to' | 'supersedes';
+
+export interface FileChange {
+  id: string;
+  entry_id: string;
+  file_path: string;
+  change_type: FileChangeType;
+  line_start?: number;
+  line_end?: number;
+  summary: string;
+  created_at: string;
+}
+
+export interface DesignDecision {
+  id: string;
+  entry_id: string;
+  decision: string;
+  rationale: string;
+  alternatives_considered?: string;
+  created_at: string;
+}
+
+export interface EntryRelationship {
+  id: string;
+  source_entry_id: string;
+  target_entry_id: string;
+  relationship_type: RelationshipType;
+  created_at: string;
+}
+
+export interface EntryContext {
+  entry: SddEntry;
+  fileChanges: FileChange[];
+  decisions: DesignDecision[];
+  relationships: EntryRelationship[];
+}
+
 export interface PaginationParams {
   page?: number;
   limit?: number;

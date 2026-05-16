@@ -7,6 +7,7 @@ import { handleProjectCreate, handleProjectList, handleProjectGet } from './tool
 import { handleEntryCreate, handleEntryGet, handleEntrySearch, handleGlobalEntrySearch, handleEntryUpdate, handleEntryDelete } from './tools/entry.js';
 import { handleTaskCreate, handleTaskList, handleTaskUpdate } from './tools/task.js';
 import { handleAuditGet } from './tools/audit.js';
+import { handleAddFileChange, handleAddDecision, handleAddRelationship, handleGetEntryContext } from './tools/context.js';
 import { startHttpServer } from './http/server.js';
 import {
   CallToolRequestSchema,
@@ -70,6 +71,18 @@ async function main() {
             break;
           case 'entry-delete':
             result = await handleEntryDelete(toolInput);
+            break;
+          case 'entry-add-file-change':
+            result = await handleAddFileChange(toolInput);
+            break;
+          case 'entry-add-decision':
+            result = await handleAddDecision(toolInput);
+            break;
+          case 'entry-add-relationship':
+            result = await handleAddRelationship(toolInput);
+            break;
+          case 'entry-get-context':
+            result = await handleGetEntryContext(toolInput);
             break;
           case 'task-create':
             result = await handleTaskCreate(toolInput);

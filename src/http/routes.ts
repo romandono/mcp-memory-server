@@ -7,9 +7,10 @@ import {
   createEntry, getEntry, getProjectEntries, updateEntry, deleteEntry, searchEntries, searchAllEntries,
   createTask, getTask, getProjectTasks, updateTask, deleteTask,
   addClassification, getClassifications, getAuditLog,
+  addFileChange, addDesignDecision, addEntryRelationship, getEntryContext,
 } from '../db/schema.js';
 import { getDbPath } from '../db/init.js';
-import { Project, SddEntry, Task, Classification } from '../types/context.js';
+import { Project, SddEntry, Task, Classification, FileChange, DesignDecision, EntryRelationship } from '../types/context.js';
 
 const router = Router();
 
@@ -128,6 +129,62 @@ router.get('/api/projects/:pid/entries/search', (req: Request, res: Response) =>
     result.pagination = { page: pageNum, limit: limitNum, total, totalPages: Math.ceil(total / limitNum) || 1 };
   }
   res.json(result);
+});
+
+router.get('/api/entries/:eid/context', (req: Request, res: Response) => {
+  const eid = req.params.eid as string;
+  const ctx = getEntryContext(eid);
+  if (!ctx) { res.status(404).json({ success: false, message: 'Entry not found' }); return; }
+  res.json({ success: true, context: ctx });
+});
+
+router.post('/api/entries/:eid/file-changes', (req: Request, res: Response) => {
+  const eid = req.params.eid as string;
+  if (!getEntry(eid)) { res.status(404).json({ success: false, message: 'Entry not found' }); return; }
+  const { file_path, change_type, line_start, line_end, summary } = req.body;
+  if (!file_path || !change_type || !summary) {
+    res.status(400).json({ success: false, message: 'file_path, change_type, summary required' });
+    return;
+  }
+  const fc: FileChange = {
+    id: randomUUID(), entry_id: eid, file_path, change_type,
+    line_start, line_end, summary, created_at: new Date().toISOString(),
+  };
+  addFileChange(fc);
+  res.status(201).json({ success: true, id: fc.id, message: `File change recorded for ${file_path}` });
+});
+
+router.post('/api/entries/:eid/decisions', (req: Request, res: Response) => {
+  const eid = req.params.eid as string;
+  if (!getEntry(eid)) { res.status(404).json({ success: false, message: 'Entry not found' }); return; }
+  const { decision, rationale, alternatives_considered } = req.body;
+  if (!decision || !rationale) {
+    res.status(400).json({ success: false, message: 'decision and rationale required' });
+    return;
+  }
+  const dd: DesignDecision = {
+    id: randomUUID(), entry_id: eid, decision, rationale,
+    alternatives_considered, created_at: new Date().toISOString(),
+  };
+  addDesignDecision(dd);
+  res.status(201).json({ success: true, id: dd.id, message: `Decision "${decision}" recorded` });
+});
+
+router.post('/api/entries/:eid/relationships', (req: Request, res: Response) => {
+  const eid = req.params.eid as string;
+  if (!getEntry(eid)) { res.status(404).json({ success: false, message: 'Source entry not found' }); return; }
+  const { target_entry_id, relationship_type } = req.body;
+  if (!target_entry_id || !relationship_type) {
+    res.status(400).json({ success: false, message: 'target_entry_id and relationship_type required' });
+    return;
+  }
+  if (!getEntry(target_entry_id)) { res.status(404).json({ success: false, message: 'Target entry not found' }); return; }
+  const rel: EntryRelationship = {
+    id: randomUUID(), source_entry_id: eid, target_entry_id,
+    relationship_type, created_at: new Date().toISOString(),
+  };
+  addEntryRelationship(rel);
+  res.status(201).json({ success: true, id: rel.id, message: `Relationship "${relationship_type}" created` });
 });
 
 router.get('/api/projects/:pid/entries/:eid', (req: Request, res: Response) => {

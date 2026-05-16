@@ -37,6 +37,10 @@ export function startHttpServer(): http.Server {
     console.log(`[HTTP]   GET    /api/audit`);
     console.log(`[HTTP]   GET    /api/db/download`);
     console.log(`[HTTP]   POST   /api/classify`);
+    console.log(`[HTTP]   GET    /api/entries/:eid/context`);
+    console.log(`[HTTP]   POST   /api/entries/:eid/file-changes`);
+    console.log(`[HTTP]   POST   /api/entries/:eid/decisions`);
+    console.log(`[HTTP]   POST   /api/entries/:eid/relationships`);
   });
 
   return server;

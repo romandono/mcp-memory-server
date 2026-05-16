@@ -1,5 +1,5 @@
 import { getDatabase } from './init.js';
-import { Project, SddEntry, Task, Classification, AuditLogEntry, PaginationParams, PaginatedResult } from '../types/context.js';
+import { Project, SddEntry, Task, Classification, AuditLogEntry, FileChange, DesignDecision, EntryRelationship, EntryContext, PaginationParams, PaginatedResult } from '../types/context.js';
 import { toFtsQuery } from './migrations/runner.js';
 
 function parsePagination(params: PaginationParams): { limit: number; offset: number } {
@@ -277,6 +277,58 @@ export function getAuditLog(filters?: { entity_type?: string; entity_id?: string
 
   const data = db.prepare(dataSql).all(...dataParams) as AuditLogEntry[];
   return { data, total };
+}
+
+// ---- FILE CHANGES ----
+
+export function addFileChange(fc: FileChange): void {
+  getDatabase().prepare(`
+    INSERT INTO file_changes (id, entry_id, file_path, change_type, line_start, line_end, summary, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(fc.id, fc.entry_id, fc.file_path, fc.change_type, fc.line_start || null, fc.line_end || null, fc.summary, fc.created_at);
+}
+
+export function getFileChanges(entryId: string): FileChange[] {
+  return getDatabase().prepare('SELECT * FROM file_changes WHERE entry_id = ? ORDER BY created_at ASC').all(entryId) as FileChange[];
+}
+
+// ---- DESIGN DECISIONS ----
+
+export function addDesignDecision(dd: DesignDecision): void {
+  getDatabase().prepare(`
+    INSERT INTO design_decisions (id, entry_id, decision, rationale, alternatives_considered, created_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(dd.id, dd.entry_id, dd.decision, dd.rationale, dd.alternatives_considered || null, dd.created_at);
+}
+
+export function getDesignDecisions(entryId: string): DesignDecision[] {
+  return getDatabase().prepare('SELECT * FROM design_decisions WHERE entry_id = ? ORDER BY created_at ASC').all(entryId) as DesignDecision[];
+}
+
+// ---- ENTRY RELATIONSHIPS ----
+
+export function addEntryRelationship(rel: EntryRelationship): void {
+  getDatabase().prepare(`
+    INSERT INTO entry_relationships (id, source_entry_id, target_entry_id, relationship_type, created_at)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(rel.id, rel.source_entry_id, rel.target_entry_id, rel.relationship_type, rel.created_at);
+}
+
+export function getEntryRelationships(entryId: string): EntryRelationship[] {
+  return getDatabase().prepare(`
+    SELECT * FROM entry_relationships WHERE source_entry_id = ? OR target_entry_id = ? ORDER BY created_at ASC
+  `).all(entryId, entryId) as EntryRelationship[];
+}
+
+// ---- ENTRY CONTEXT ----
+
+export function getEntryContext(entryId: string): EntryContext | null {
+  const entry = getEntry(entryId);
+  if (!entry) return null;
+  const fileChanges = getFileChanges(entryId);
+  const decisions = getDesignDecisions(entryId);
+  const relationships = getEntryRelationships(entryId);
+  return { entry, fileChanges, decisions, relationships };
 }
 
 // ---- CLASSIFICATIONS ----

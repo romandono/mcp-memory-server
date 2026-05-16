@@ -176,6 +176,45 @@ const migrations: Migration[] = [
       `);
     },
   },
+  {
+    name: '004_add_context_tables',
+    up(db) {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS file_changes (
+          id TEXT PRIMARY KEY,
+          entry_id TEXT NOT NULL REFERENCES sdd_entries(id) ON DELETE CASCADE,
+          file_path TEXT NOT NULL,
+          change_type TEXT NOT NULL CHECK(change_type IN ('added','modified','removed')),
+          line_start INTEGER,
+          line_end INTEGER,
+          summary TEXT NOT NULL,
+          created_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS design_decisions (
+          id TEXT PRIMARY KEY,
+          entry_id TEXT NOT NULL REFERENCES sdd_entries(id) ON DELETE CASCADE,
+          decision TEXT NOT NULL,
+          rationale TEXT NOT NULL,
+          alternatives_considered TEXT,
+          created_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS entry_relationships (
+          id TEXT PRIMARY KEY,
+          source_entry_id TEXT NOT NULL REFERENCES sdd_entries(id) ON DELETE CASCADE,
+          target_entry_id TEXT NOT NULL REFERENCES sdd_entries(id) ON DELETE CASCADE,
+          relationship_type TEXT NOT NULL CHECK(relationship_type IN ('depends_on','implements','related_to','supersedes')),
+          created_at TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_file_changes_entry ON file_changes(entry_id);
+        CREATE INDEX IF NOT EXISTS idx_design_decisions_entry ON design_decisions(entry_id);
+        CREATE INDEX IF NOT EXISTS idx_entry_relationships_source ON entry_relationships(source_entry_id);
+        CREATE INDEX IF NOT EXISTS idx_entry_relationships_target ON entry_relationships(target_entry_id);
+      `);
+    },
+  },
 ];
 
 function ensureMigrationsTable(db: Database.Database): void {
