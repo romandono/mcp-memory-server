@@ -43,9 +43,20 @@ projects
  │    ├── title, description
  │    └── status, priority
  │
- └── classifications (polymorphic)
-      ├── classifiable_type (project | entry | task)
-      └── tag, confidence
+  ├── classifications (polymorphic)
+  │    ├── classifiable_type (project | entry | task)
+  │    └── tag, confidence
+  │
+  ├── audit_log
+  │    ├── id, entity_type, entity_id
+  │    ├── action (created | updated | deleted)
+  │    └── changes (JSON), project_id, timestamp
+  │
+  └── fts_entries (FTS5 virtual table)
+       ├── entry_id, section, title, content
+       └── auto-sincronizada via triggers
+
+_migrations (tracking de cambios de schema)
 ```
 
 ### Tecnologías
@@ -131,34 +142,43 @@ npm start          # start en foreground
 
 El servidor HTTP corre en `http://localhost:3001` (configurable con `HTTP_PORT`).
 
+> Todos los endpoints de listado soportan paginación con `?page=1&limit=50` (max 200).  
+> La respuesta incluye `pagination: { page, limit, total, totalPages }`.
+
 #### Proyectos
 
 ```
-GET    /api/projects                 → Listar proyectos
-POST   /api/projects                 → Crear proyecto { name, description? }
-GET    /api/projects/:id             → Proyecto con entries + tasks + clasificaciones
-PUT    /api/projects/:id             → Actualizar proyecto { name?, status?, description? }
-DELETE /api/projects/:id             → Eliminar proyecto (cascade)
+GET    /api/projects                              → Listar proyectos (?page=&limit=)
+POST   /api/projects                              → Crear proyecto { name, description? }
+GET    /api/projects/:id                          → Proyecto con entries + tasks + clasificaciones
+PUT    /api/projects/:id                          → Actualizar proyecto { name?, status?, description? }
+DELETE /api/projects/:id                          → Eliminar proyecto (cascade)
 ```
 
 #### Entradas SDD
 
 ```
-GET    /api/projects/:pid/entries                   → Listar entradas (?section=)
-POST   /api/projects/:pid/entries                   → Crear entrada { section, title, content? }
-GET    /api/projects/:pid/entries/search?q=texto    → Buscar entradas
-GET    /api/projects/:pid/entries/:eid              → Obtener entrada + clasificaciones
-PUT    /api/projects/:pid/entries/:eid              → Actualizar entrada
-DELETE /api/projects/:pid/entries/:eid              → Eliminar entrada
+GET    /api/projects/:pid/entries                 → Listar entradas (?section=&page=&limit=)
+POST   /api/projects/:pid/entries                 → Crear entrada { section, title, content? }
+GET    /api/projects/:pid/entries/search?q=texto  → Buscar entradas (FTS5, ?page=&limit=)
+GET    /api/projects/:pid/entries/:eid            → Obtener entrada + clasificaciones
+PUT    /api/projects/:pid/entries/:eid            → Actualizar entrada
+DELETE /api/projects/:pid/entries/:eid            → Eliminar entrada
 ```
 
 #### Tareas
 
 ```
-GET    /api/projects/:pid/tasks                     → Listar tareas (?entry_id=)
-POST   /api/projects/:pid/tasks                     → Crear tarea { title, priority?, sdd_entry_id? }
-PUT    /api/projects/:pid/tasks/:tid                → Actualizar tarea { status? }
-DELETE /api/projects/:pid/tasks/:tid                → Eliminar tarea
+GET    /api/projects/:pid/tasks                   → Listar tareas (?entry_id=&page=&limit=)
+POST   /api/projects/:pid/tasks                   → Crear tarea { title, priority?, sdd_entry_id? }
+PUT    /api/projects/:pid/tasks/:tid              → Actualizar tarea { status? }
+DELETE /api/projects/:pid/tasks/:tid              → Eliminar tarea
+```
+
+#### Auditoría
+
+```
+GET    /api/audit                                  → Historial de cambios (?entity_type=&entity_id=&project_id=&page=&limit=)
 ```
 
 #### Clasificaciones
@@ -175,16 +195,17 @@ El servidor expone estas herramientas vía MCP (STDIO):
 | Tool | Descripción |
 |------|-------------|
 | `project-create` | Crear proyecto |
-| `project-list` | Listar proyectos |
+| `project-list` | Listar proyectos (con paginación opcional) |
 | `project-get` | Proyecto completo con entries y tasks |
 | `entry-create` | Crear entrada SDD (plan/design/tasks/general) |
-| `entry-get` | Listar entradas de un proyecto |
-| `entry-search` | Buscar entradas por texto |
+| `entry-get` | Listar entradas de un proyecto (con paginación opcional) |
+| `entry-search` | Buscar entradas por texto (FTS5, con paginación opcional) |
 | `entry-update` | Actualizar entrada (title, content, status, section, parent_id) |
 | `entry-delete` | Eliminar entrada |
 | `task-create` | Crear tarea |
-| `task-list` | Listar tareas de un proyecto |
+| `task-list` | Listar tareas de un proyecto (con paginación opcional) |
 | `task-update` | Actualizar estado de tarea |
+| `audit-get` | Consultar historial de cambios (filtros: entity_type, entity_id, project_id) |
 
 ---
 
@@ -231,21 +252,42 @@ Una vez conectado, opencode tendrá acceso a estas herramientas:
 | `project-get` | Obtener un proyecto completo con entradas y tareas |
 | `entry-create` | Crear una entrada SDD (plan/design/tasks/general) |
 | `entry-get` | Obtener entradas de un proyecto |
-| `entry-search` | Buscar entradas por texto |
+| `entry-search` | Buscar entradas por texto (FTS5) |
 | `entry-update` | Actualizar una entrada (title, content, status, section, parent_id) |
 | `entry-delete` | Eliminar una entrada |
 | `task-create` | Crear una tarea |
 | `task-list` | Listar tareas de un proyecto |
 | `task-update` | Actualizar estado de una tarea |
+| `audit-get` | Consultar historial de cambios de entradas y tareas |
 
 ---
 
-## Tests
+## Tests y calidad
 
 ```bash
-npm test             # Ejecutar tests (Vitest)
+npm test             # Ejecutar tests (Vitest, 90+ tests)
 npm run test:watch   # Modo watch
+npm run lint         # ESLint
+npm run lint:fix     # ESLint con auto-fix
+npm run format       # Prettier (check)
+npm run format:fix   # Prettier (formatear)
+npm run type-check   # TypeScript strict check
 ```
+
+---
+
+## Migraciones
+
+El schema de la base de datos se gestiona mediante migraciones numeradas en `src/db/migrations/runner.ts`:
+
+| Migración | Descripción |
+|-----------|-------------|
+| `001_initial_schema` | Tablas base: projects, sdd_entries, tasks, classifications |
+| `002_add_fts5` | Búsqueda de texto completo (FTS5) con sincronización automática |
+| `003_add_audit_log` | Auditoría de cambios con triggers en entries y tasks |
+
+Las migraciones se aplican automáticamente al iniciar el servidor.  
+La tabla `_migrations` registra cuáles se han ejecutado.
 
 ---
 
