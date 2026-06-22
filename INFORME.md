@@ -11,7 +11,7 @@
 |---------|-------|
 | Entradas SDD (plan/design/tasks) | 15 |
 | Tareas completadas | 19/19 |
-| Tests finales | 64/64 pasan |
+| Tests finales | 137/137 pasan |
 | Estado del proyecto | Activo |
 
 ---
@@ -89,6 +89,15 @@ Actualizar README.md con documentación funcional, técnica e instalación paso 
 - Nuevo comando `mcp-memory migrate-db --from <path>` para copiar BD legacy
 - Workflow `.github/workflows/release.yml` publica npm package y GitHub Release al taggear `v*`
 
+### Actualización 2026-06-22 B
+- Modelo compacto derivado con `entry_summaries` y `memory_facts`
+- Soporte de vistas `summary|compact` y formato `TOON` (`toon-r`, `toon-d`)
+- Nuevos endpoints/tools: `entry-get-summary`, `entry-batch-get`, `/api/entries/batch`, `/api/facts`
+- Budgets de respuesta: `max_items`, `max_chars`
+- Cursor pagination: `cursor`, `next_cursor`
+- Métricas de payload en respuestas compactas JSON: `bytes`, `chars`, `estimated_tokens`
+- FTS5 compacta sobre `fts_entry_summaries` para búsqueda optimizada de summaries/keywords
+
 ---
 
 ## 5. Entry Update/Delete MCP tools
@@ -118,8 +127,8 @@ Actualizar README.md con documentación funcional, técnica e instalación paso 
 
 - **Entradas SDD creadas:** 15
 - **Tareas:** 19 completadas, 0 pendientes
-- **Tests:** 64 tests, todos pasando
-- **Cobertura de funcionalidad:** Schema SDD (CRUD completo) + Tests + CLI + MCP tools + API REST + Documentación
+- **Tests:** 137 tests, todos pasando
+- **Cobertura de funcionalidad:** Schema SDD (CRUD completo) + Compact memory/TOON + Tests + CLI + MCP tools + API REST + Documentación
 
 ---
 

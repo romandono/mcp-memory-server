@@ -227,6 +227,7 @@ function cmdInfo() {
   console.log('  mcp-memory stdio                 Run MCP server in foreground');
   console.log('  mcp-memory paths                 Show resolved storage paths');
   console.log('  mcp-memory version               Show package version');
+  console.log('  mcp-memory rebuild-memory        Rebuild derived summaries and facts');
   console.log('  mcp-memory migrate-db --from X   Copy legacy database to default location');
 }
 
@@ -241,6 +242,24 @@ function cmdPaths() {
 
 function cmdVersion() {
   console.log(PKG.version);
+}
+
+function cmdRebuildMemory() {
+  ensureParentDirs();
+  ensureDistExists();
+
+  const child = spawn(process.execPath, [DIST_ENTRY, '--rebuild-memory'], {
+    cwd: ROOT,
+    stdio: 'inherit',
+    env: {
+      ...process.env,
+      DB_PATH: PATHS.dbPath,
+      LOG_PATH: PATHS.logPath,
+      PID_PATH: PATHS.pidPath,
+    },
+  });
+
+  child.on('exit', (code) => process.exit(code ?? 0));
 }
 
 function cmdMigrateDb() {
@@ -279,9 +298,10 @@ switch (cmd) {
   case 'stdio': cmdStdio(); break;
   case 'paths': cmdPaths(); break;
   case 'version': cmdVersion(); break;
+  case 'rebuild-memory': cmdRebuildMemory(); break;
   case 'migrate-db': cmdMigrateDb(); break;
   default:
     console.log(`Unknown command: ${cmd}`);
-    console.log('Usage: mcp-memory <start|stop|status|restart|logs|info|stdio|paths|version|migrate-db>');
+    console.log('Usage: mcp-memory <start|stop|status|restart|logs|info|stdio|paths|version|rebuild-memory|migrate-db>');
     process.exit(1);
 }

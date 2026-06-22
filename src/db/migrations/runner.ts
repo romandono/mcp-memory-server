@@ -215,6 +215,54 @@ const migrations: Migration[] = [
       `);
     },
   },
+  {
+    name: '005_add_compact_memory',
+    up(db) {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS entry_summaries (
+          entry_id TEXT PRIMARY KEY REFERENCES sdd_entries(id) ON DELETE CASCADE,
+          summary_short TEXT NOT NULL,
+          summary_dense TEXT NOT NULL,
+          keywords TEXT,
+          source_hash TEXT NOT NULL,
+          version INTEGER NOT NULL DEFAULT 1,
+          updated_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS memory_facts (
+          id TEXT PRIMARY KEY,
+          project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+          entry_id TEXT REFERENCES sdd_entries(id) ON DELETE CASCADE,
+          kind TEXT NOT NULL,
+          subject TEXT NOT NULL,
+          predicate TEXT NOT NULL,
+          object TEXT NOT NULL,
+          weight REAL NOT NULL DEFAULT 1,
+          source TEXT NOT NULL,
+          created_at TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_entry_summaries_updated_at ON entry_summaries(updated_at);
+        CREATE INDEX IF NOT EXISTS idx_memory_facts_project ON memory_facts(project_id);
+        CREATE INDEX IF NOT EXISTS idx_memory_facts_entry ON memory_facts(entry_id);
+        CREATE INDEX IF NOT EXISTS idx_memory_facts_kind ON memory_facts(kind);
+      `);
+    },
+  },
+  {
+    name: '006_add_compact_memory_fts',
+    up(db) {
+      db.exec(`
+        CREATE VIRTUAL TABLE IF NOT EXISTS fts_entry_summaries USING fts5(
+          entry_id UNINDEXED,
+          project_id UNINDEXED,
+          summary_short,
+          summary_dense,
+          keywords
+        );
+      `);
+    },
+  },
 ];
 
 function ensureMigrationsTable(db: Database.Database): void {

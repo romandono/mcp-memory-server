@@ -32,6 +32,9 @@ describe('Migrations', () => {
     expect(names).toContain('sdd_entries');
     expect(names).toContain('tasks');
     expect(names).toContain('classifications');
+    expect(names).toContain('entry_summaries');
+    expect(names).toContain('memory_facts');
+    expect(names).toContain('fts_entry_summaries');
     expect(names).toContain('_migrations');
   });
 
@@ -45,6 +48,10 @@ describe('Migrations', () => {
     expect(names).toContain('idx_tasks_entry');
     expect(names).toContain('idx_classifications_target');
     expect(names).toContain('idx_classifications_tag');
+    expect(names).toContain('idx_entry_summaries_updated_at');
+    expect(names).toContain('idx_memory_facts_project');
+    expect(names).toContain('idx_memory_facts_entry');
+    expect(names).toContain('idx_memory_facts_kind');
   });
 
   it('does not re-apply already-run migrations', () => {

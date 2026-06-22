@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { initializeDatabase, closeDatabase } from '../../src/db/init.js';
 import { handleProjectCreate, handleProjectList, handleProjectGet } from '../../src/tools/project.js';
-import { handleEntryCreate, handleEntryGet, handleEntrySearch, handleGlobalEntrySearch, handleEntryUpdate, handleEntryDelete } from '../../src/tools/entry.js';
+import { handleEntryCreate, handleEntryGet, handleEntrySearch, handleGlobalEntrySearch, handleEntryUpdate, handleEntryDelete, handleEntryGetSummary, handleEntryBatchGet } from '../../src/tools/entry.js';
 import { handleTaskCreate, handleTaskList, handleTaskUpdate } from '../../src/tools/task.js';
-import { handleAddDecision, handleAddRelationship, handleGetEntryContext } from '../../src/tools/context.js';
+import { handleAddDecision, handleAddRelationship, handleGetEntryContext, handleMemoryFactsGet } from '../../src/tools/context.js';
 
 beforeEach(() => {
   initializeDatabase(':memory:');
@@ -67,6 +67,15 @@ describe('project tools', () => {
     expect(result.project.name).toBe('Full');
     expect(result.entries).toHaveLength(1);
     expect(result.tasks).toHaveLength(1);
+  });
+
+  it('handleProjectGet returns compact project view', async () => {
+    const created = await handleProjectCreate({ name: 'Compact' });
+    const pid = created.id;
+    await handleEntryCreate({ project_id: pid, section: 'plan', title: 'Entry 1' });
+    const result = await handleProjectGet({ id: pid, view: 'compact' });
+    expect(result.success).toBe(true);
+    expect(result.entries[0].summary_short).toBeDefined();
   });
 
   it('handleProjectGet returns not found', async () => {
@@ -152,6 +161,20 @@ describe('entry tools', () => {
     const result = await handleEntrySearch({ project_id: pid, query: 'database' });
     expect(result.count).toBe(1);
     expect(result.results[0].title).toBe('Database Design');
+  });
+
+  it('handleEntrySearch returns compact results', async () => {
+    await handleEntryCreate({ project_id: pid, section: 'plan', title: 'Database Design', content: 'SQL' });
+    const result = await handleEntrySearch({ project_id: pid, query: 'database', view: 'compact' });
+    expect(result.results[0].summary_short).toBeDefined();
+  });
+
+  it('handleEntrySearch respects max_items budget', async () => {
+    await handleEntryCreate({ project_id: pid, section: 'plan', title: 'Database Design', content: 'SQL' });
+    await handleEntryCreate({ project_id: pid, section: 'plan', title: 'Database Rules', content: 'DDL' });
+    const result = await handleEntrySearch({ project_id: pid, query: 'database', view: 'compact', max_items: 1 });
+    expect(result.results).toHaveLength(1);
+    expect(result.truncated).toBe(true);
   });
 
   it('handleGlobalEntrySearch searches across all projects', async () => {
@@ -260,6 +283,58 @@ describe('context tools', () => {
     expect(result.context.entry.title).toBe('Test Entry');
     expect(result.context.decisions).toHaveLength(1);
     expect(result.context.relationships).toHaveLength(0);
+  });
+
+  it('handleGetEntryContext returns compact TOON context', async () => {
+    await handleAddDecision({ entry_id: eid, decision: 'Use SQLite', rationale: 'Embedded' });
+    const result = await handleGetEntryContext({ entry_id: eid, view: 'compact', format: 'toon-r' });
+    expect(result.fmt).toBe('toon-r');
+    expect(result.t).toBe('entry_ctx');
+  });
+
+  it('handleEntryGetSummary returns derived summary', async () => {
+    const result = await handleEntryGetSummary({ entry_id: eid });
+    expect(result.success).toBe(true);
+    expect(result.entry.summary_short).toBeDefined();
+  });
+
+  it('handleEntryBatchGet returns compact entries', async () => {
+    const eid2 = (await handleEntryCreate({ project_id: pid, section: 'plan', title: 'Other entry' })).id;
+    const result = await handleEntryBatchGet({ entry_ids: [eid, eid2] });
+    expect(result.success).toBe(true);
+    expect(result.entries).toHaveLength(2);
+  });
+
+  it('handleEntryBatchGet supports cursor pagination', async () => {
+    const eid2 = (await handleEntryCreate({ project_id: pid, section: 'plan', title: 'Second entry' })).id;
+    const eid3 = (await handleEntryCreate({ project_id: pid, section: 'plan', title: 'Third entry' })).id;
+    const first = await handleEntryBatchGet({ entry_ids: [eid, eid2, eid3], max_items: 1 });
+    const next = await handleEntryBatchGet({ entry_ids: [eid, eid2, eid3], max_items: 1, cursor: first.next_cursor });
+    expect(first.truncated).toBe(true);
+    expect(first.next_cursor).toBeDefined();
+    expect(next.entries).toHaveLength(1);
+    expect(next.entries[0].id).not.toBe(first.entries[0].id);
+  });
+
+  it('handleMemoryFactsGet returns derived facts', async () => {
+    await handleAddDecision({ entry_id: eid, decision: 'Use SQLite', rationale: 'Embedded' });
+    const result = await handleMemoryFactsGet({ entry_id: eid });
+    expect(result.success).toBe(true);
+    expect(result.facts.length).toBeGreaterThan(0);
+  });
+
+  it('handleMemoryFactsGet respects max_items budget', async () => {
+    await handleAddDecision({ entry_id: eid, decision: 'Use SQLite', rationale: 'Embedded' });
+    await handleAddRelationship({ source_entry_id: eid, target_entry_id: (await handleEntryCreate({ project_id: pid, section: 'plan', title: 'Ref' })).id, relationship_type: 'depends_on' });
+    const result = await handleMemoryFactsGet({ entry_id: eid, max_items: 1 });
+    expect(result.facts).toHaveLength(1);
+    expect(result.truncated).toBe(true);
+  });
+
+  it('compact handlers include metrics', async () => {
+    const result = await handleEntrySearch({ project_id: pid, query: 'Test', view: 'compact' });
+    expect(result.metrics).toBeDefined();
+    expect(result.metrics.bytes).toBeGreaterThan(0);
   });
 
   it('handleGetEntryContext returns not found', async () => {

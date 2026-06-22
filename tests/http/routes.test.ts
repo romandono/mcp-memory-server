@@ -127,6 +127,55 @@ describe('Context API', () => {
     expect(res.body.context.decisions).toHaveLength(1);
   });
 
+  it('GET /api/entries/:eid/context returns compact toon context', async () => {
+    await request(app).post(`/api/entries/${eid}/decisions`).send({ decision: 'Use TS', rationale: 'Type safety' });
+    const res = await request(app).get(`/api/entries/${eid}/context?view=compact&format=toon-r`);
+    expect(res.status).toBe(200);
+    expect(res.body.fmt).toBe('toon-r');
+    expect(res.body.t).toBe('entry_ctx');
+    expect(res.body.m).toBeDefined();
+  });
+
+  it('GET /api/entries/:eid/summary returns derived summary', async () => {
+    const res = await request(app).get(`/api/entries/${eid}/summary`);
+    expect(res.status).toBe(200);
+    expect(res.body.entry.summary_short).toBeDefined();
+  });
+
+  it('GET /api/entries/batch returns compact entries', async () => {
+    const eid2 = (await request(app).post(`/api/projects/${pid}/entries`).send({ section: 'plan', title: 'Batch Entry' })).body.id;
+    const res = await request(app).get(`/api/entries/batch?ids=${eid},${eid2}`);
+    expect(res.status).toBe(200);
+    expect(res.body.entries).toHaveLength(2);
+    expect(res.body.metrics.bytes).toBeGreaterThan(0);
+  });
+
+  it('GET /api/entries/batch supports cursor pagination', async () => {
+    const eid2 = (await request(app).post(`/api/projects/${pid}/entries`).send({ section: 'plan', title: 'Batch Two' })).body.id;
+    const eid3 = (await request(app).post(`/api/projects/${pid}/entries`).send({ section: 'plan', title: 'Batch Three' })).body.id;
+    const first = await request(app).get(`/api/entries/batch?ids=${eid},${eid2},${eid3}&max_items=1`);
+    const next = await request(app).get(`/api/entries/batch?ids=${eid},${eid2},${eid3}&max_items=1&cursor=${first.body.next_cursor}`);
+    expect(first.body.truncated).toBe(true);
+    expect(first.body.next_cursor).toBeDefined();
+    expect(next.body.entries).toHaveLength(1);
+  });
+
+  it('GET /api/facts returns derived facts', async () => {
+    await request(app).post(`/api/entries/${eid}/decisions`).send({ decision: 'Use TS', rationale: 'Type safety' });
+    const res = await request(app).get(`/api/facts?entry_id=${eid}`);
+    expect(res.status).toBe(200);
+    expect(res.body.facts.length).toBeGreaterThan(0);
+  });
+
+  it('GET /api/facts respects max_items budget', async () => {
+    await request(app).post(`/api/entries/${eid}/decisions`).send({ decision: 'Use TS', rationale: 'Type safety' });
+    const res = await request(app).get(`/api/facts?entry_id=${eid}&max_items=1`);
+    expect(res.status).toBe(200);
+    expect(res.body.facts).toHaveLength(1);
+    expect(res.body.truncated).toBe(true);
+    expect(res.body.metrics.bytes).toBeGreaterThan(0);
+  });
+
   it('GET /api/entries/:eid/context returns 404', async () => {
     const res = await request(app).get('/api/entries/bad/context');
     expect(res.status).toBe(404);
@@ -223,6 +272,40 @@ describe('Entries API', () => {
     expect(res.body.results).toHaveLength(2);
   });
 
+  it('GET /api/entries/search supports compact view', async () => {
+    await request(app).post(`/api/projects/${pid}/entries`).send({ section: 'plan', title: 'Database Design' });
+    const res = await request(app).get('/api/entries/search?q=design&view=compact');
+    expect(res.body.results[0].summary_short).toBeDefined();
+  });
+
+  it('GET /api/entries/search compact uses derived summary index', async () => {
+    const created = await request(app).post(`/api/projects/${pid}/entries`).send({ section: 'plan', title: 'Release' });
+    await request(app).post(`/api/entries/${created.body.id}/decisions`).send({ decision: 'Use SQLite replication', rationale: 'Fast local memory' });
+    const res = await request(app).get('/api/entries/search?q=replication&view=compact');
+    expect(res.status).toBe(200);
+    expect(res.body.results.length).toBeGreaterThan(0);
+    expect(res.body.results[0].id).toBe(created.body.id);
+  });
+
+  it('GET /api/entries/search respects compact budgets', async () => {
+    await request(app).post(`/api/projects/${pid}/entries`).send({ section: 'plan', title: 'Database Design One' });
+    await request(app).post(`/api/projects/${pid}/entries`).send({ section: 'plan', title: 'Database Design Two' });
+    const res = await request(app).get('/api/entries/search?q=design&view=compact&max_items=1');
+    expect(res.body.results).toHaveLength(1);
+    expect(res.body.truncated).toBe(true);
+    expect(res.body.metrics.bytes).toBeGreaterThan(0);
+  });
+
+  it('GET /api/entries/search supports cursor pagination', async () => {
+    await request(app).post(`/api/projects/${pid}/entries`).send({ section: 'plan', title: 'Cursor One' });
+    await request(app).post(`/api/projects/${pid}/entries`).send({ section: 'plan', title: 'Cursor Two' });
+    await request(app).post(`/api/projects/${pid}/entries`).send({ section: 'plan', title: 'Cursor Three' });
+    const first = await request(app).get('/api/entries/search?q=cursor&view=compact&max_items=1');
+    const next = await request(app).get(`/api/entries/search?q=cursor&view=compact&max_items=1&cursor=${first.body.next_cursor}`);
+    expect(first.body.next_cursor).toBeDefined();
+    expect(next.body.results).toHaveLength(1);
+  });
+
   it('GET /api/entries/search requires query param', async () => {
     const res = await request(app).get('/api/entries/search');
     expect(res.status).toBe(400);
@@ -259,6 +342,15 @@ describe('Entries API', () => {
     const res = await request(app)
       .get(`/api/projects/${pid}/entries/${eid}`);
     expect(res.body.entry.title).toBe('Single');
+  });
+
+  it('GET /api/projects/:pid/entries/:eid returns compact entry', async () => {
+    const created = await request(app)
+      .post(`/api/projects/${pid}/entries`)
+      .send({ section: 'plan', title: 'Single compact' });
+    const eid = created.body.id;
+    const res = await request(app).get(`/api/projects/${pid}/entries/${eid}?view=compact`);
+    expect(res.body.entry.summary_short).toBeDefined();
   });
 
   it('PUT /api/projects/:pid/entries/:eid updates', async () => {

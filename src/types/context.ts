@@ -61,6 +61,8 @@ export interface AuditLogEntry {
 }
 
 export type RelationshipType = 'depends_on' | 'implements' | 'related_to' | 'supersedes';
+export type ResponseView = 'full' | 'summary' | 'compact';
+export type ResponseFormat = 'json' | 'toon-r' | 'toon-d';
 
 export interface DesignDecision {
   id: string;
@@ -83,6 +85,63 @@ export interface EntryContext {
   entry: SddEntry;
   decisions: DesignDecision[];
   relationships: EntryRelationship[];
+}
+
+export interface EntrySummary {
+  entry_id: string;
+  summary_short: string;
+  summary_dense: string;
+  keywords: string[];
+  source_hash: string;
+  version: number;
+  updated_at: string;
+}
+
+export interface MemoryFact {
+  id: string;
+  project_id: string;
+  entry_id?: string;
+  kind: string;
+  subject: string;
+  predicate: string;
+  object: string;
+  weight: number;
+  source: string;
+  created_at: string;
+}
+
+export interface CompactEntry {
+  id: string;
+  project_id: string;
+  section: SddSection;
+  status: EntryStatus;
+  title: string;
+  summary_short: string;
+  summary_dense: string;
+  keywords: string[];
+}
+
+export interface CompactTask {
+  id: string;
+  project_id: string;
+  sdd_entry_id?: string;
+  title: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+}
+
+export interface CompactEntryContext {
+  entry: CompactEntry;
+  decisions: DesignDecision[];
+  relationships: EntryRelationship[];
+  facts: MemoryFact[];
+}
+
+export interface ProjectCompact {
+  project: Project;
+  entries: CompactEntry[];
+  tasks: CompactTask[];
+  classifications: Classification[];
 }
 
 export interface PaginationParams {

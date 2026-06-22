@@ -1,5 +1,22 @@
 import { getDatabase } from './init.js';
-import { Project, SddEntry, Task, Classification, AuditLogEntry, DesignDecision, EntryRelationship, EntryContext, PaginationParams, PaginatedResult } from '../types/context.js';
+import {
+  Project,
+  SddEntry,
+  Task,
+  Classification,
+  AuditLogEntry,
+  DesignDecision,
+  EntryRelationship,
+  EntryContext,
+  PaginationParams,
+  PaginatedResult,
+  EntrySummary,
+  MemoryFact,
+  CompactEntry,
+  CompactEntryContext,
+  CompactTask,
+  ProjectCompact,
+} from '../types/context.js';
 import { toFtsQuery } from './migrations/runner.js';
 
 function parsePagination(params: PaginationParams): { limit: number; offset: number } {
@@ -92,6 +109,23 @@ export function getProjectEntries(projectId: string, section?: string, paramsPg?
   }
 
   const rows = db.prepare(dataSql).all(...dataParams) as any[];
+  const data = rows.map(r => ({ ...r, metadata: r.metadata ? JSON.parse(r.metadata) : undefined }));
+  return { data, total };
+}
+
+export function getAllEntries(paramsPg?: PaginationParams): PaginatedResult<SddEntry> {
+  const { limit, offset } = parsePagination(paramsPg || {});
+  const db = getDatabase();
+  const total = (db.prepare('SELECT COUNT(*) as count FROM sdd_entries').get() as any).count;
+
+  let sql = 'SELECT * FROM sdd_entries ORDER BY created_at ASC';
+  const params: any[] = [];
+  if (limit) {
+    sql += ' LIMIT ? OFFSET ?';
+    params.push(limit, offset);
+  }
+
+  const rows = db.prepare(sql).all(...params) as any[];
   const data = rows.map(r => ({ ...r, metadata: r.metadata ? JSON.parse(r.metadata) : undefined }));
   return { data, total };
 }
@@ -224,6 +258,10 @@ export function getProjectTasks(projectId: string, entryId?: string, paramsPg?: 
   return { data, total };
 }
 
+export function getTasksByEntry(entryId: string): Task[] {
+  return getDatabase().prepare('SELECT * FROM tasks WHERE sdd_entry_id = ? ORDER BY created_at ASC').all(entryId) as Task[];
+}
+
 export function updateTask(id: string, updates: Partial<Task>): void {
   const existing = getTask(id);
   if (!existing) throw new Error(`Task ${id} not found`);
@@ -315,6 +353,234 @@ export function getEntryContext(entryId: string): EntryContext | null {
   const decisions = getDesignDecisions(entryId);
   const relationships = getEntryRelationships(entryId);
   return { entry, decisions, relationships };
+}
+
+// ---- COMPACT MEMORY ----
+
+export function upsertEntrySummary(summary: EntrySummary): void {
+  const db = getDatabase();
+  db.prepare(`
+    INSERT INTO entry_summaries (entry_id, summary_short, summary_dense, keywords, source_hash, version, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(entry_id) DO UPDATE SET
+      summary_short = excluded.summary_short,
+      summary_dense = excluded.summary_dense,
+      keywords = excluded.keywords,
+      source_hash = excluded.source_hash,
+      version = excluded.version,
+      updated_at = excluded.updated_at
+  `).run(
+    summary.entry_id,
+    summary.summary_short,
+    summary.summary_dense,
+    JSON.stringify(summary.keywords),
+    summary.source_hash,
+    summary.version,
+    summary.updated_at,
+  );
+
+  const entry = getEntry(summary.entry_id);
+  if (entry) {
+    db.prepare('DELETE FROM fts_entry_summaries WHERE entry_id = ?').run(summary.entry_id);
+    db.prepare(`
+      INSERT INTO fts_entry_summaries (entry_id, project_id, summary_short, summary_dense, keywords)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(summary.entry_id, entry.project_id, summary.summary_short, summary.summary_dense, summary.keywords.join(' '));
+  }
+}
+
+export function getEntrySummary(entryId: string): EntrySummary | null {
+  const row = getDatabase().prepare('SELECT * FROM entry_summaries WHERE entry_id = ?').get(entryId) as any;
+  if (!row) return null;
+  return { ...row, keywords: row.keywords ? JSON.parse(row.keywords) : [] };
+}
+
+export function deleteEntrySummary(entryId: string): void {
+  const db = getDatabase();
+  db.prepare('DELETE FROM entry_summaries WHERE entry_id = ?').run(entryId);
+  db.prepare('DELETE FROM fts_entry_summaries WHERE entry_id = ?').run(entryId);
+}
+
+export function replaceEntryFacts(entryId: string, facts: MemoryFact[]): void {
+  const db = getDatabase();
+  const tx = db.transaction((nextFacts: MemoryFact[]) => {
+    db.prepare('DELETE FROM memory_facts WHERE entry_id = ?').run(entryId);
+    const stmt = db.prepare(`
+      INSERT INTO memory_facts (id, project_id, entry_id, kind, subject, predicate, object, weight, source, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    for (const fact of nextFacts) {
+      stmt.run(fact.id, fact.project_id, fact.entry_id || null, fact.kind, fact.subject, fact.predicate, fact.object, fact.weight, fact.source, fact.created_at);
+    }
+  });
+  tx(facts);
+}
+
+export function listMemoryFacts(filters?: { project_id?: string; entry_id?: string; kind?: string }, paramsPg?: PaginationParams): PaginatedResult<MemoryFact> {
+  const { limit, offset } = parsePagination(paramsPg || {});
+  const db = getDatabase();
+
+  let countSql = 'SELECT COUNT(*) as count FROM memory_facts WHERE 1=1';
+  let dataSql = 'SELECT * FROM memory_facts WHERE 1=1';
+  const countParams: any[] = [];
+  const dataParams: any[] = [];
+
+  if (filters?.project_id) {
+    countSql += ' AND project_id = ?';
+    dataSql += ' AND project_id = ?';
+    countParams.push(filters.project_id);
+    dataParams.push(filters.project_id);
+  }
+  if (filters?.entry_id) {
+    countSql += ' AND entry_id = ?';
+    dataSql += ' AND entry_id = ?';
+    countParams.push(filters.entry_id);
+    dataParams.push(filters.entry_id);
+  }
+  if (filters?.kind) {
+    countSql += ' AND kind = ?';
+    dataSql += ' AND kind = ?';
+    countParams.push(filters.kind);
+    dataParams.push(filters.kind);
+  }
+
+  const total = (db.prepare(countSql).get(...countParams) as any).count;
+  dataSql += ' ORDER BY created_at ASC';
+  if (limit) {
+    dataSql += ' LIMIT ? OFFSET ?';
+    dataParams.push(limit, offset);
+  }
+
+  const data = db.prepare(dataSql).all(...dataParams) as MemoryFact[];
+  return { data, total };
+}
+
+function fallbackSummary(entry: SddEntry): EntrySummary {
+  return {
+    entry_id: entry.id,
+    summary_short: entry.title,
+    summary_dense: `sec:${entry.section}\nst:${entry.status}\ntitle:${entry.title}`,
+    keywords: [],
+    source_hash: '',
+    version: 1,
+    updated_at: entry.updated_at,
+  };
+}
+
+export function getCompactEntry(entryId: string): CompactEntry | null {
+  const entry = getEntry(entryId);
+  if (!entry) return null;
+  const summary = getEntrySummary(entryId) || fallbackSummary(entry);
+  return {
+    id: entry.id,
+    project_id: entry.project_id,
+    section: entry.section,
+    status: entry.status,
+    title: entry.title,
+    summary_short: summary.summary_short,
+    summary_dense: summary.summary_dense,
+    keywords: summary.keywords,
+  };
+}
+
+export function getCompactEntriesByIds(entryIds: string[]): CompactEntry[] {
+  return entryIds.map(id => getCompactEntry(id)).filter((entry): entry is CompactEntry => entry !== null);
+}
+
+export function getCompactEntryContext(entryId: string): CompactEntryContext | null {
+  const entry = getCompactEntry(entryId);
+  if (!entry) return null;
+  const decisions = getDesignDecisions(entryId);
+  const relationships = getEntryRelationships(entryId);
+  const { data: facts } = listMemoryFacts({ entry_id: entryId });
+  return { entry, decisions, relationships, facts };
+}
+
+export function searchCompactEntries(query: string, projectId?: string, paramsPg?: PaginationParams): PaginatedResult<CompactEntry> {
+  const { limit, offset } = parsePagination(paramsPg || {});
+  const db = getDatabase();
+
+  let ftsQuery: string;
+  try {
+    ftsQuery = toFtsQuery(query);
+  } catch {
+    ftsQuery = query;
+  }
+
+  let countSql = 'SELECT COUNT(*) as count FROM fts_entry_summaries WHERE fts_entry_summaries MATCH ?';
+  let dataSql = `
+    SELECT entry_id FROM fts_entry_summaries
+    WHERE fts_entry_summaries MATCH ?
+  `;
+  const countParams: any[] = [ftsQuery];
+  const dataParams: any[] = [ftsQuery];
+
+  if (projectId) {
+    countSql += ' AND project_id = ?';
+    dataSql += ' AND project_id = ?';
+    countParams.push(projectId);
+    dataParams.push(projectId);
+  }
+
+  const total = (db.prepare(countSql).get(...countParams) as any).count;
+  dataSql += ' ORDER BY rank';
+  if (limit) {
+    dataSql += ' LIMIT ? OFFSET ?';
+    dataParams.push(limit, offset);
+  }
+
+  const rows = db.prepare(dataSql).all(...dataParams) as { entry_id: string }[];
+  const data = rows.map(row => getCompactEntry(row.entry_id)).filter((entry): entry is CompactEntry => entry !== null);
+
+  if (data.length > 0 || total > 0) {
+    return { total, data };
+  }
+
+  const base = projectId ? searchEntries(projectId, query, paramsPg) : searchAllEntries(query, paramsPg);
+  return {
+    total: base.total,
+    data: base.data.map(entry => getCompactEntry(entry.id) || {
+      id: entry.id,
+      project_id: entry.project_id,
+      section: entry.section,
+      status: entry.status,
+      title: entry.title,
+      summary_short: entry.title,
+      summary_dense: entry.content,
+      keywords: [],
+    }),
+  };
+}
+
+export function getProjectCompact(projectId: string, paramsPg?: { entryLimit?: number; taskLimit?: number }): ProjectCompact | null {
+  const project = getProject(projectId);
+  if (!project) return null;
+  const { data: entries } = getProjectEntries(projectId, undefined, paramsPg?.entryLimit ? { page: 1, limit: paramsPg.entryLimit } : undefined);
+  const { data: tasks } = getProjectTasks(projectId, undefined, paramsPg?.taskLimit ? { page: 1, limit: paramsPg.taskLimit } : undefined);
+  const classifications = getClassifications('project', projectId);
+
+  return {
+    project,
+    entries: entries.map(entry => getCompactEntry(entry.id) || {
+      id: entry.id,
+      project_id: entry.project_id,
+      section: entry.section,
+      status: entry.status,
+      title: entry.title,
+      summary_short: entry.title,
+      summary_dense: entry.content,
+      keywords: [],
+    }),
+    tasks: tasks.map(task => ({
+      id: task.id,
+      project_id: task.project_id,
+      sdd_entry_id: task.sdd_entry_id,
+      title: task.title,
+      status: task.status,
+      priority: task.priority,
+    } as CompactTask)),
+    classifications,
+  };
 }
 
 // ---- CLASSIFICATIONS ----

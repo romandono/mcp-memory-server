@@ -158,6 +158,7 @@ mcp-memory logs       # Tail de logs
 mcp-memory info       # Información del proyecto
 mcp-memory paths      # Muestra rutas resueltas
 mcp-memory version    # Muestra versión instalada
+mcp-memory rebuild-memory   # Regenera summaries/facts compactos
 mcp-memory migrate-db --from /ruta/db.sqlite
 ```
 
@@ -204,14 +205,56 @@ DELETE /api/projects/:pid/entries/:eid                → Eliminar entrada
 
 ```
 GET    /api/entries/search?q=texto                    → Buscar entradas en todos los proyectos (FTS5, ?page=&limit=)
+GET    /api/entries/search?q=texto&view=compact       → Resultados compactos optimizados para LLM
 ```
+
+### TOON y vistas compactas
+
+Parámetros nuevos en rutas/tools compatibles:
+
+- `view=full|summary|compact`
+- `format=json|toon-r|toon-d`
+- `max_items=<n>`
+- `max_chars=<n>`
+- `cursor=<last_id>`
+
+Uso recomendado para agentes/LLM:
+
+```bash
+curl "http://localhost:3001/api/entries/<eid>/context?view=compact&format=toon-r"
+curl "http://localhost:3001/api/entries/search?q=release&view=compact&format=toon-d"
+curl "http://localhost:3001/api/entries/batch?ids=e1,e2,e3&max_items=2"
+```
+
+Semántica:
+
+- `full`: contrato legacy completo
+- `summary`: respuesta resumida sin contenido largo
+- `compact`: respuesta basada en summaries/facts derivadas
+- `toon-r`: TOON legible para debug
+- `toon-d`: TOON denso para mínimo tamaño
+- `max_items`: corta arrays compactos y marca `truncated`
+- `max_chars`: limita volumen aproximado de texto compacto
+- `cursor`: continúa desde último `id` devuelto en respuesta previa
+- `metrics`: cada respuesta compacta JSON incluye `bytes`, `chars`, `estimated_tokens`
+
+Implementación actual:
+
+- `summary_short` y `summary_dense` derivadas por entry
+- `memory_facts` derivadas desde entries, decisiones y relaciones
+- FTS5 compacta sobre `fts_entry_summaries` para búsquedas TOON/compact
+- Fallback automático al índice legacy si faltan datos derivados
 
 #### Contexto enriquecido
 
 ```
 GET    /api/entries/:eid/context                      → Entry + decisions + relationships
+GET    /api/entries/:eid/summary                      → Summary derivada compacta
+GET    /api/entries/:eid/compact                      → Contexto compacto/TOON
+GET    /api/entries/batch?ids=e1,e2                   → Batch compacto por IDs
 POST   /api/entries/:eid/decisions                    → Registrar decisión de diseño { decision, rationale, alternatives_considered? }
 POST   /api/entries/:eid/relationships                → Relacionar entries { target_entry_id, relationship_type }
+GET    /api/facts                                     → Facts derivadas (?project_id=&entry_id=&kind=&page=&limit=&max_items=&max_chars=&cursor=)
 ```
 
 #### Tareas
@@ -253,10 +296,13 @@ El servidor expone estas herramientas vía MCP (STDIO):
 | `entry-delete` | Eliminar entrada |
 | `entry-add-decision` | Registrar decisión de diseño |
 | `entry-add-relationship` | Relacionar dos entradas |
+| `entry-batch-get` | Obtener varias entradas compactas por ID |
 | `entry-get-context` | Obtener entrada + decisions + relationships |
+| `entry-get-summary` | Obtener summary derivada compacta |
 | `task-create` | Crear tarea |
 | `task-list` | Listar tareas de un proyecto (con paginación opcional) |
 | `task-update` | Actualizar estado de tarea |
+| `memory-facts-get` | Consultar facts derivadas |
 | `audit-get` | Consultar historial de cambios (filtros: entity_type, entity_id, project_id) |
 
 ---
@@ -334,10 +380,13 @@ Una vez conectado, opencode tendrá acceso a estas herramientas:
 | `entry-delete` | Eliminar una entrada |
 | `entry-add-decision` | Registrar decisión de diseño |
 | `entry-add-relationship` | Relacionar dos entradas |
+| `entry-batch-get` | Obtener varias entradas compactas por ID |
 | `entry-get-context` | Obtener entrada + decisions + relationships |
+| `entry-get-summary` | Obtener summary derivada compacta |
 | `task-create` | Crear una tarea |
 | `task-list` | Listar tareas de un proyecto |
 | `task-update` | Actualizar estado de una tarea |
+| `memory-facts-get` | Consultar facts derivadas |
 | `audit-get` | Consultar historial de cambios de entradas y tareas |
 
 ---
@@ -345,7 +394,7 @@ Una vez conectado, opencode tendrá acceso a estas herramientas:
 ## Tests y calidad
 
 ```bash
-npm test             # Ejecutar tests (Vitest)
+npm test             # Ejecutar tests (Vitest, 137 tests)
 npm run test:watch   # Modo watch
 npm run lint         # ESLint
 npm run lint:fix     # ESLint con auto-fix
@@ -366,6 +415,8 @@ El schema de la base de datos se gestiona mediante migraciones numeradas en `src
 | `002_add_fts5` | Búsqueda de texto completo (FTS5) con sincronización automática |
 | `003_add_audit_log` | Auditoría de cambios con triggers en entries y tasks |
 | `004_add_context_tables` | Tablas de contexto enriquecido: file_changes (legacy), design_decisions, entry_relationships |
+| `005_add_compact_memory` | Summaries derivadas y memory facts para views compactas / TOON |
+| `006_add_compact_memory_fts` | Índice FTS5 sobre summaries/keywords para búsqueda compacta |
 
 Las migraciones se aplican automáticamente al iniciar el servidor.  
 La tabla `_migrations` registra cuáles se han ejecutado.

@@ -7,10 +7,15 @@ import {
   createEntry, getEntry, getProjectEntries, updateEntry, deleteEntry, searchEntries, searchAllEntries,
   createTask, getTask, getProjectTasks, updateTask, deleteTask,
   addClassification, getClassifications, getAuditLog,
-  addDesignDecision, addEntryRelationship, getEntryContext,
+  addDesignDecision, addEntryRelationship, getCompactEntry, getCompactEntryContext, getEntryContext, getProjectCompact, listMemoryFacts, searchCompactEntries,
 } from '../db/schema.js';
 import { getDbPath } from '../db/init.js';
 import { Project, SddEntry, Task, Classification, DesignDecision, EntryRelationship } from '../types/context.js';
+import { rebuildEntryMemory } from '../memory/rebuild.js';
+import { applyCompactEntryCharBudget, applyCursor, applyFactCharBudget, applyItemBudget, buildNextCursor } from '../memory/budget.js';
+import { withMetrics } from '../memory/response.js';
+import { parseFormat, parseView } from '../memory/view.js';
+import { setToonMeta, toToonEntryContext, toToonEntrySummary, toToonFacts, toToonProjectCompact, toToonSearchResults } from '../memory/toon.js';
 
 const router = Router();
 
@@ -275,6 +280,7 @@ router.post('/api/projects/:pid/entries', (req: Request, res: Response) => {
   const now = new Date().toISOString();
   const entry: SddEntry = { id, project_id: pid, section, title, content: content || '', status: status || 'draft', parent_id, created_at: now, updated_at: now };
   createEntry(entry);
+  rebuildEntryMemory(id);
   res.status(201).json({ success: true, id, message: `Entry created in ${section}` });
 });
 
@@ -305,6 +311,27 @@ router.get('/api/entries/search', (req: Request, res: Response) => {
   if (!query) { res.status(400).json({ success: false, message: 'query param q is required' }); return; }
   const page = req.query.page ? parseInt(req.query.page as string, 10) : undefined;
   const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined;
+  const maxItems = req.query.max_items ? parseInt(req.query.max_items as string, 10) : undefined;
+  const maxChars = req.query.max_chars ? parseInt(req.query.max_chars as string, 10) : undefined;
+  const cursor = req.query.cursor as string | undefined;
+  const view = parseView(req.query.view);
+  const format = parseFormat(req.query.format);
+  if (view !== 'full') {
+    const { data, total } = searchCompactEntries(query, undefined, page || limit ? { page, limit } : undefined);
+    const cursorData = applyCursor(data, cursor);
+    const itemBudget = applyItemBudget(cursorData, maxItems);
+    const charBudget = applyCompactEntryCharBudget(itemBudget.items, maxChars);
+    const truncated = itemBudget.truncated || charBudget.truncated;
+    const nextCursor = buildNextCursor(cursorData, charBudget.items, truncated);
+    const result: any = format === 'json' ? withMetrics({ success: true, count: charBudget.items.length, results: charBudget.items, truncated, next_cursor: nextCursor }) : setToonMeta(toToonSearchResults(charBudget.items, format, { truncated, next: nextCursor }), { truncated, next: nextCursor, count: charBudget.items.length });
+    if (format === 'json' && (page || limit)) {
+      const pageNum = page || 1;
+      const limitNum = limit || total;
+      result.pagination = { page: pageNum, limit: limitNum, total, totalPages: Math.ceil(total / limitNum) || 1 };
+    }
+    res.json(result);
+    return;
+  }
   const { data, total } = searchAllEntries(query, page || limit ? { page, limit } : undefined);
   const result: any = { success: true, count: data.length, results: data };
   if (page || limit) {
@@ -346,6 +373,27 @@ router.get('/api/projects/:pid/entries/search', (req: Request, res: Response) =>
   if (!query) { res.status(400).json({ success: false, message: 'query param q is required' }); return; }
   const page = req.query.page ? parseInt(req.query.page as string, 10) : undefined;
   const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined;
+  const maxItems = req.query.max_items ? parseInt(req.query.max_items as string, 10) : undefined;
+  const maxChars = req.query.max_chars ? parseInt(req.query.max_chars as string, 10) : undefined;
+  const cursor = req.query.cursor as string | undefined;
+  const view = parseView(req.query.view);
+  const format = parseFormat(req.query.format);
+  if (view !== 'full') {
+    const { data, total } = searchCompactEntries(query, pid, page || limit ? { page, limit } : undefined);
+    const cursorData = applyCursor(data, cursor);
+    const itemBudget = applyItemBudget(cursorData, maxItems);
+    const charBudget = applyCompactEntryCharBudget(itemBudget.items, maxChars);
+    const truncated = itemBudget.truncated || charBudget.truncated;
+    const nextCursor = buildNextCursor(cursorData, charBudget.items, truncated);
+    const result: any = format === 'json' ? withMetrics({ success: true, count: charBudget.items.length, results: charBudget.items, truncated, next_cursor: nextCursor }) : setToonMeta(toToonSearchResults(charBudget.items, format, { truncated, next: nextCursor }), { truncated, next: nextCursor, count: charBudget.items.length });
+    if (format === 'json' && (page || limit)) {
+      const pageNum = page || 1;
+      const limitNum = limit || total;
+      result.pagination = { page: pageNum, limit: limitNum, total, totalPages: Math.ceil(total / limitNum) || 1 };
+    }
+    res.json(result);
+    return;
+  }
   const { data, total } = searchEntries(pid, query, page || limit ? { page, limit } : undefined);
   const result: any = { success: true, count: data.length, results: data };
   if (page || limit) {
@@ -373,9 +421,86 @@ router.get('/api/projects/:pid/entries/search', (req: Request, res: Response) =>
  */
 router.get('/api/entries/:eid/context', (req: Request, res: Response) => {
   const eid = req.params.eid as string;
+  const view = parseView(req.query.view);
+  const format = parseFormat(req.query.format);
+  if (view !== 'full') {
+    const ctx = getCompactEntryContext(eid);
+    if (!ctx) { res.status(404).json({ success: false, message: 'Entry not found' }); return; }
+    res.json(format === 'json' ? withMetrics({ success: true, context: ctx }) : setToonMeta(toToonEntryContext(ctx, format), { count: 1 }));
+    return;
+  }
   const ctx = getEntryContext(eid);
   if (!ctx) { res.status(404).json({ success: false, message: 'Entry not found' }); return; }
   res.json({ success: true, context: ctx });
+});
+
+router.get('/api/entries/:eid/summary', (req: Request, res: Response) => {
+  const eid = req.params.eid as string;
+  const format = parseFormat(req.query.format);
+  const entry = getCompactEntry(eid);
+  if (!entry) { res.status(404).json({ success: false, message: 'Entry not found' }); return; }
+  res.json(format === 'json' ? withMetrics({ success: true, entry }) : setToonMeta(toToonEntrySummary(entry, format), { count: 1 }));
+});
+
+router.get('/api/entries/batch', (req: Request, res: Response) => {
+  const idsParam = req.query.ids as string | undefined;
+  if (!idsParam) { res.status(400).json({ success: false, message: 'query param ids is required' }); return; }
+  const format = parseFormat(req.query.format);
+  const maxItems = req.query.max_items ? parseInt(req.query.max_items as string, 10) : undefined;
+  const maxChars = req.query.max_chars ? parseInt(req.query.max_chars as string, 10) : undefined;
+  const cursor = req.query.cursor as string | undefined;
+  const entries = applyCursor(idsParam.split(',').map(id => id.trim()).filter(Boolean).map(id => getCompactEntry(id)).filter((entry): entry is NonNullable<typeof entry> => entry !== null), cursor);
+  const itemBudget = applyItemBudget(entries, maxItems);
+  const charBudget = applyCompactEntryCharBudget(itemBudget.items, maxChars);
+  const truncated = itemBudget.truncated || charBudget.truncated;
+  const nextCursor = buildNextCursor(entries, charBudget.items, truncated);
+  res.json(format === 'json'
+    ? withMetrics({ success: true, count: charBudget.items.length, entries: charBudget.items, truncated, next_cursor: nextCursor })
+    : setToonMeta(toToonSearchResults(charBudget.items, format, { truncated, next: nextCursor }), { truncated, next: nextCursor, count: charBudget.items.length }));
+});
+
+router.get('/api/entries/:eid/compact', (req: Request, res: Response) => {
+  const eid = req.params.eid as string;
+  const format = parseFormat(req.query.format);
+  const ctx = getCompactEntryContext(eid);
+  if (!ctx) { res.status(404).json({ success: false, message: 'Entry not found' }); return; }
+  res.json(format === 'json' ? withMetrics({ success: true, context: ctx }) : setToonMeta(toToonEntryContext(ctx, format), { count: 1 }));
+});
+
+router.get('/api/projects/:id/compact', (req: Request, res: Response) => {
+  const id = req.params.id as string;
+  const format = parseFormat(req.query.format);
+  const entryLimit = req.query.entry_limit ? parseInt(req.query.entry_limit as string, 10) : undefined;
+  const taskLimit = req.query.task_limit ? parseInt(req.query.task_limit as string, 10) : undefined;
+  const compact = getProjectCompact(id, { entryLimit, taskLimit });
+  if (!compact) { res.status(404).json({ success: false, message: 'Project not found' }); return; }
+  res.json(format === 'json' ? withMetrics({ success: true, ...compact }) : setToonMeta(toToonProjectCompact(compact, format), { count: compact.entries.length + compact.tasks.length }));
+});
+
+router.get('/api/facts', (req: Request, res: Response) => {
+  const format = parseFormat(req.query.format);
+  const page = req.query.page ? parseInt(req.query.page as string, 10) : undefined;
+  const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined;
+  const maxItems = req.query.max_items ? parseInt(req.query.max_items as string, 10) : undefined;
+  const maxChars = req.query.max_chars ? parseInt(req.query.max_chars as string, 10) : undefined;
+  const cursor = req.query.cursor as string | undefined;
+  const { data, total } = listMemoryFacts({
+    project_id: req.query.project_id as string | undefined,
+    entry_id: req.query.entry_id as string | undefined,
+    kind: req.query.kind as string | undefined,
+  }, page || limit ? { page, limit } : undefined);
+  const cursorData = applyCursor(data, cursor);
+  const itemBudget = applyItemBudget(cursorData, maxItems);
+  const charBudget = applyFactCharBudget(itemBudget.items, maxChars);
+  const truncated = itemBudget.truncated || charBudget.truncated;
+  const nextCursor = buildNextCursor(cursorData, charBudget.items, truncated);
+  const result: any = format === 'json' ? withMetrics({ success: true, count: charBudget.items.length, facts: charBudget.items, truncated, next_cursor: nextCursor }) : setToonMeta(toToonFacts(charBudget.items, format), { truncated, next: nextCursor, count: charBudget.items.length });
+  if (format === 'json' && (page || limit)) {
+    const pageNum = page || 1;
+    const limitNum = limit || total;
+    result.pagination = { page: pageNum, limit: limitNum, total, totalPages: Math.ceil(total / limitNum) || 1 };
+  }
+  res.json(result);
 });
 
 /**
@@ -417,6 +542,7 @@ router.post('/api/entries/:eid/decisions', (req: Request, res: Response) => {
     alternatives_considered, created_at: new Date().toISOString(),
   };
   addDesignDecision(dd);
+  rebuildEntryMemory(eid);
   res.status(201).json({ success: true, id: dd.id, message: `Decision "${decision}" recorded` });
 });
 
@@ -459,6 +585,8 @@ router.post('/api/entries/:eid/relationships', (req: Request, res: Response) => 
     relationship_type, created_at: new Date().toISOString(),
   };
   addEntryRelationship(rel);
+  rebuildEntryMemory(eid);
+  rebuildEntryMemory(target_entry_id);
   res.status(201).json({ success: true, id: rel.id, message: `Relationship "${relationship_type}" created` });
 });
 
@@ -483,6 +611,14 @@ router.post('/api/entries/:eid/relationships', (req: Request, res: Response) => 
  */
 router.get('/api/projects/:pid/entries/:eid', (req: Request, res: Response) => {
   const eid = req.params.eid as string;
+  const view = parseView(req.query.view);
+  const format = parseFormat(req.query.format);
+  if (view !== 'full') {
+    const compactEntry = getCompactEntry(eid);
+    if (!compactEntry) { res.status(404).json({ success: false, message: 'Entry not found' }); return; }
+    res.json(format === 'json' ? { success: true, entry: compactEntry } : toToonEntrySummary(compactEntry, format));
+    return;
+  }
   const entry = getEntry(eid);
   if (!entry) { res.status(404).json({ success: false, message: 'Entry not found' }); return; }
   const classifications = getClassifications('entry', eid);
@@ -522,6 +658,7 @@ router.put('/api/projects/:pid/entries/:eid', (req: Request, res: Response) => {
   const eid = req.params.eid as string;
   if (!getEntry(eid)) { res.status(404).json({ success: false, message: 'Entry not found' }); return; }
   updateEntry(eid, req.body);
+  rebuildEntryMemory(eid);
   res.json({ success: true, message: 'Entry updated' });
 });
 

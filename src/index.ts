@@ -3,11 +3,12 @@ import { initializeDatabase, closeDatabase } from './db/init.js';
 import { getAppPaths } from './config/paths.js';
 import { createMcpServer, getTools } from './server/setup.js';
 import { handleProjectCreate, handleProjectList, handleProjectGet } from './tools/project.js';
-import { handleEntryCreate, handleEntryGet, handleEntrySearch, handleGlobalEntrySearch, handleEntryUpdate, handleEntryDelete } from './tools/entry.js';
+import { handleEntryCreate, handleEntryGet, handleEntrySearch, handleGlobalEntrySearch, handleEntryUpdate, handleEntryDelete, handleEntryGetSummary, handleEntryBatchGet } from './tools/entry.js';
 import { handleTaskCreate, handleTaskList, handleTaskUpdate } from './tools/task.js';
 import { handleAuditGet } from './tools/audit.js';
-import { handleAddDecision, handleAddRelationship, handleGetEntryContext } from './tools/context.js';
+import { handleAddDecision, handleAddRelationship, handleGetEntryContext, handleMemoryFactsGet } from './tools/context.js';
 import { startHttpServer } from './http/server.js';
+import { rebuildAllMemory } from './memory/rebuild.js';
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
@@ -21,6 +22,13 @@ async function main() {
     console.log('[INIT] Initializing database...');
     initializeDatabase(DB_PATH);
     console.log('[INIT] Database initialized at:', DB_PATH);
+
+    if (process.argv.includes('--rebuild-memory')) {
+      const count = rebuildAllMemory();
+      console.log(`[MEMORY] Rebuilt derived memory for ${count} entries`);
+      closeDatabase();
+      process.exit(0);
+    }
 
     console.log('[INIT] Creating MCP server...');
     const { server, transport } = createMcpServer();
@@ -72,11 +80,20 @@ async function main() {
           case 'entry-add-decision':
             result = await handleAddDecision(toolInput);
             break;
+          case 'entry-get-summary':
+            result = await handleEntryGetSummary(toolInput);
+            break;
+          case 'entry-batch-get':
+            result = await handleEntryBatchGet(toolInput);
+            break;
           case 'entry-add-relationship':
             result = await handleAddRelationship(toolInput);
             break;
           case 'entry-get-context':
             result = await handleGetEntryContext(toolInput);
+            break;
+          case 'memory-facts-get':
+            result = await handleMemoryFactsGet(toolInput);
             break;
           case 'task-create':
             result = await handleTaskCreate(toolInput);
