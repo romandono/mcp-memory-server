@@ -22,9 +22,20 @@ jobs:
           node-version: 22
 
       - name: Install dependencies
-        run: touch "$RUNNER_TEMP/empty-npmrc" && npm ci --registry=https://registry.npmjs.org --userconfig "$RUNNER_TEMP/empty-npmrc"
+        run: |
+          mkdir -p "$RUNNER_TEMP/empty-home"
+          touch "$RUNNER_TEMP/empty-npmrc"
+          HOME="$RUNNER_TEMP/empty-home" \
+          NPM_CONFIG_USERCONFIG="$RUNNER_TEMP/empty-npmrc" \
+          NPM_CONFIG_GLOBALCONFIG="$RUNNER_TEMP/empty-npmrc" \
+          NPM_CONFIG_REGISTRY="https://registry.npmjs.org/" \
+          npm ci --registry=https://registry.npmjs.org
         env:
           NODE_AUTH_TOKEN: ''
+          NPM_TOKEN: ''
+          NPM_CONFIG_ALWAYS_AUTH: 'false'
+          NPM_CONFIG__AUTH: ''
+          NPM_CONFIG__AUTHTOKEN: ''
 
       - name: Run tests
         run: npm test
