@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readFileSync, existsSync, writeFileSync, createWriteStream, mkdirSync, copyFileSync, unlinkSync } from 'fs';
+import { readFileSync, existsSync, writeFileSync, mkdirSync, copyFileSync, unlinkSync, openSync, closeSync } from 'fs';
 import { spawn } from 'child_process';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -114,12 +114,11 @@ async function cmdStart() {
   }
 
   console.log('[mcp-memory] Starting server...');
-  const child = spawnServer(true, ['ignore', 'pipe', 'pipe']);
-
-  const outStream = createWriteStream(PATHS.logPath, { flags: 'a' });
-  child.stdout.pipe(outStream);
-  child.stderr.pipe(outStream);
+  ensureParentDirs();
+  const logFd = openSync(PATHS.logPath, 'a');
+  const child = spawnServer(true, ['ignore', logFd, logFd]);
   child.unref();
+  closeSync(logFd);
 
   const serverPid = child.pid;
   writeFileSync(PATHS.pidPath, String(serverPid));

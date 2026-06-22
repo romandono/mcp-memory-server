@@ -32,7 +32,7 @@ async function main() {
 
     console.log('[INIT] Creating MCP server...');
     const { server, transport } = createMcpServer();
-    const requestHandlerServer = server as any;
+    const requestHandlerServer = server.server;
     console.log('[INIT] MCP server created');
 
     requestHandlerServer.setRequestHandler(ListToolsRequestSchema, async () => {

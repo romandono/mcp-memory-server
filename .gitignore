@@ -16,3 +16,4 @@ server.log
 /tmp/
 index.js
 sqlite-wrapper.mjs
+.tool-versions
