@@ -24,10 +24,11 @@ jobs:
       - name: Install dependencies
         run: |
           mkdir -p "$RUNNER_TEMP/empty-home"
-          touch "$RUNNER_TEMP/empty-npmrc"
+          touch "$RUNNER_TEMP/empty-user.npmrc"
+          touch "$RUNNER_TEMP/empty-global.npmrc"
           HOME="$RUNNER_TEMP/empty-home" \
-          NPM_CONFIG_USERCONFIG="$RUNNER_TEMP/empty-npmrc" \
-          NPM_CONFIG_GLOBALCONFIG="$RUNNER_TEMP/empty-npmrc" \
+          NPM_CONFIG_USERCONFIG="$RUNNER_TEMP/empty-user.npmrc" \
+          NPM_CONFIG_GLOBALCONFIG="$RUNNER_TEMP/empty-global.npmrc" \
           NPM_CONFIG_REGISTRY="https://registry.npmjs.org/" \
           npm ci --registry=https://registry.npmjs.org
         env:
