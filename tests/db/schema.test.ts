@@ -5,10 +5,10 @@ import {
   createEntry, getEntry, getProjectEntries, updateEntry, deleteEntry, searchEntries, searchAllEntries,
   createTask, getTask, getProjectTasks, updateTask, deleteTask,
   addClassification, getClassifications, removeClassification,
-  addFileChange, getFileChanges, addDesignDecision, getDesignDecisions,
+  addDesignDecision, getDesignDecisions,
   addEntryRelationship, getEntryRelationships, getEntryContext,
 } from '../../src/db/schema.js';
-import { Project, SddEntry, Task, Classification, FileChange, DesignDecision, EntryRelationship } from '../../src/types/context.js';
+import { Project, SddEntry, Task, Classification, DesignDecision, EntryRelationship } from '../../src/types/context.js';
 
 function makeProject(overrides?: Partial<Project>): Project {
   const now = new Date().toISOString();
@@ -284,27 +284,6 @@ describe('Tasks', () => {
 
 // ---- CLASSIFICATIONS ----
 
-describe('File Changes', () => {
-  it('adds and retrieves file changes for an entry', () => {
-    const project = makeProject();
-    createProject(project);
-    const entry = makeEntry(project.id);
-    createEntry(entry);
-
-    const fc: FileChange = {
-      id: 'fc1', entry_id: entry.id, file_path: 'src/foo.ts',
-      change_type: 'modified', line_start: 10, line_end: 25,
-      summary: 'Added bar function', created_at: new Date().toISOString(),
-    };
-    addFileChange(fc);
-
-    const list = getFileChanges(entry.id);
-    expect(list).toHaveLength(1);
-    expect(list[0].file_path).toBe('src/foo.ts');
-    expect(list[0].change_type).toBe('modified');
-  });
-});
-
 describe('Design Decisions', () => {
   it('adds and retrieves design decisions for an entry', () => {
     const project = makeProject();
@@ -353,13 +332,11 @@ describe('Entry Context', () => {
     const entry = makeEntry(project.id);
     createEntry(entry);
 
-    addFileChange({ id: 'fc1', entry_id: entry.id, file_path: 'src/foo.ts', change_type: 'added', summary: 'New file', created_at: new Date().toISOString() });
     addDesignDecision({ id: 'dd1', entry_id: entry.id, decision: 'Use TS', rationale: 'Type safety', created_at: new Date().toISOString() });
 
     const ctx = getEntryContext(entry.id);
     expect(ctx).not.toBeNull();
     expect(ctx!.entry.id).toBe(entry.id);
-    expect(ctx!.fileChanges).toHaveLength(1);
     expect(ctx!.decisions).toHaveLength(1);
     expect(ctx!.relationships).toHaveLength(0);
   });

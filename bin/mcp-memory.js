@@ -1,19 +1,74 @@
 #!/usr/bin/env node
-import { readFileSync, existsSync, writeFileSync, createWriteStream } from 'fs';
-import { spawn, execSync } from 'child_process';
+import { readFileSync, existsSync, writeFileSync, createWriteStream, mkdirSync, copyFileSync, unlinkSync } from 'fs';
+import { spawn } from 'child_process';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import http from 'http';
+import os from 'os';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
+const DIST_ENTRY = resolve(ROOT, 'dist/index.js');
 const PKG = JSON.parse(readFileSync(resolve(ROOT, 'package.json'), 'utf-8'));
-const PID_FILE = resolve(ROOT, '.server.pid');
-const LOG_FILE = resolve(ROOT, 'server.log');
+
+function getAppPaths(env = process.env, platform = process.platform) {
+  const appName = 'mcp-memory';
+
+  function resolveAppHome() {
+    if (env.MCP_MEMORY_HOME) return resolve(env.MCP_MEMORY_HOME);
+
+    if (platform === 'win32') {
+      const localAppData = env.LOCALAPPDATA || resolve(os.homedir(), 'AppData', 'Local');
+      return resolve(localAppData, appName);
+    }
+
+    if (platform === 'darwin') {
+      return resolve(os.homedir(), 'Library', 'Application Support', appName);
+    }
+
+    const dataHome = env.XDG_DATA_HOME || resolve(os.homedir(), '.local', 'share');
+    return resolve(dataHome, appName);
+  }
+
+  function resolveStateDir(appHome) {
+    if (env.MCP_MEMORY_HOME) return resolve(appHome, 'state');
+    if (platform === 'win32' || platform === 'darwin') return resolve(appHome, 'state');
+    const stateHome = env.XDG_STATE_HOME || resolve(os.homedir(), '.local', 'state');
+    return resolve(stateHome, appName);
+  }
+
+  const appHome = resolveAppHome();
+  const dataDir = env.MCP_MEMORY_HOME ? resolve(appHome, 'data') : appHome;
+  const stateDir = resolveStateDir(appHome);
+
+  return {
+    appHome,
+    dataDir,
+    stateDir,
+    dbPath: resolve(env.DB_PATH || resolve(dataDir, 'memory.db')),
+    logPath: resolve(env.LOG_PATH || resolve(stateDir, 'server.log')),
+    pidPath: resolve(env.PID_PATH || resolve(stateDir, 'server.pid')),
+  };
+}
+
+const PATHS = getAppPaths();
+
+function ensureParentDirs() {
+  mkdirSync(dirname(PATHS.dbPath), { recursive: true });
+  mkdirSync(dirname(PATHS.logPath), { recursive: true });
+  mkdirSync(dirname(PATHS.pidPath), { recursive: true });
+}
+
+function ensureDistExists() {
+  if (!existsSync(DIST_ENTRY)) {
+    console.error('[mcp-memory] Compiled server not found. Reinstall package or run npm run build in development checkout.');
+    process.exit(1);
+  }
+}
 
 function readPid() {
-  if (!existsSync(PID_FILE)) return null;
-  const pid = parseInt(readFileSync(PID_FILE, 'utf-8').trim(), 10);
+  if (!existsSync(PATHS.pidPath)) return null;
+  const pid = parseInt(readFileSync(PATHS.pidPath, 'utf-8').trim(), 10);
   return isNaN(pid) ? null : pid;
 }
 
@@ -33,6 +88,24 @@ function getStatus() {
   return { pid, running };
 }
 
+function spawnServer(detached, stdio, extraEnv = {}) {
+  ensureParentDirs();
+  ensureDistExists();
+
+  return spawn(process.execPath, [DIST_ENTRY], {
+    cwd: ROOT,
+    detached,
+    stdio,
+    env: {
+      ...process.env,
+      DB_PATH: PATHS.dbPath,
+      LOG_PATH: PATHS.logPath,
+      PID_PATH: PATHS.pidPath,
+      ...extraEnv,
+    },
+  });
+}
+
 async function cmdStart() {
   const { running, pid } = getStatus();
   if (running) {
@@ -40,29 +113,16 @@ async function cmdStart() {
     return;
   }
 
-  console.log(`[mcp-memory] Building...`);
-  try {
-    execSync('npm run build', { cwd: ROOT, stdio: 'inherit' });
-  } catch {
-    console.error('[mcp-memory] Build failed');
-    process.exit(1);
-  }
+  console.log('[mcp-memory] Starting server...');
+  const child = spawnServer(true, ['ignore', 'pipe', 'pipe']);
 
-  console.log(`[mcp-memory] Starting server...`);
-  const child = spawn('node', ['dist/index.js'], {
-    cwd: ROOT,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    detached: true,
-  });
-
-  const outStream = createWriteStream(LOG_FILE, { flags: 'a' });
+  const outStream = createWriteStream(PATHS.logPath, { flags: 'a' });
   child.stdout.pipe(outStream);
   child.stderr.pipe(outStream);
-
   child.unref();
 
   const serverPid = child.pid;
-  writeFileSync(PID_FILE, String(serverPid));
+  writeFileSync(PATHS.pidPath, String(serverPid));
 
   await new Promise(r => setTimeout(r, 1500));
 
@@ -70,13 +130,12 @@ async function cmdStart() {
     console.log(`[mcp-memory] Server started (PID ${serverPid})`);
     console.log(`[mcp-memory]   HTTP:     http://localhost:${process.env.HTTP_PORT || 3001}`);
     console.log(`[mcp-memory]   MCP:      stdio`);
-    console.log(`[mcp-memory]   Logs:     ${LOG_FILE}`);
-    console.log(`[mcp-memory]   DB:       data/memory.db`);
-    console.log(`[mcp-memory]   Status:   mcp-memory status`);
-    console.log(`[mcp-memory]   Stop:     mcp-memory stop`);
+    console.log(`[mcp-memory]   DB:       ${PATHS.dbPath}`);
+    console.log(`[mcp-memory]   Logs:     ${PATHS.logPath}`);
+    console.log(`[mcp-memory]   PID file: ${PATHS.pidPath}`);
   } else {
     console.error('[mcp-memory] Server failed to start. Check logs:');
-    console.error(`  tail -50 ${LOG_FILE}`);
+    console.error(`  ${PATHS.logPath}`);
   }
 }
 
@@ -84,7 +143,6 @@ function cmdStop() {
   const { running, pid } = getStatus();
   if (!running) {
     console.log('[mcp-memory] Server not running');
-    if (pid) execSync(`rm -f ${PID_FILE}`);
     return;
   }
 
@@ -92,14 +150,13 @@ function cmdStop() {
   try {
     process.kill(pid, 'SIGTERM');
     setTimeout(() => {
-      if (isRunning(pid)) {
-        process.kill(pid, 'SIGKILL');
-      }
+      if (isRunning(pid)) process.kill(pid, 'SIGKILL');
     }, 3000);
   } catch (e) {
     console.error(`[mcp-memory] Error: ${e.message}`);
   }
-  execSync(`rm -f ${PID_FILE}`);
+
+  try { unlinkSync(PATHS.pidPath); } catch {}
   console.log('[mcp-memory] Server stopped');
 }
 
@@ -108,7 +165,8 @@ function cmdStatus() {
   if (running) {
     console.log(`[mcp-memory] Server is RUNNING (PID ${pid})`);
     console.log(`  HTTP: http://localhost:${process.env.HTTP_PORT || 3001}`);
-    console.log(`  DB:   data/memory.db`);
+    console.log(`  DB:   ${PATHS.dbPath}`);
+    console.log(`  Log:  ${PATHS.logPath}`);
 
     const healthUrl = `http://localhost:${process.env.HTTP_PORT || 3001}/health`;
     try {
@@ -116,7 +174,12 @@ function cmdStatus() {
         let data = '';
         r.on('data', c => data += c);
         r.on('end', () => {
-          try { const j = JSON.parse(data); console.log(`  Health: ${j.status} (${j.timestamp})`); } catch { console.log('  Health: unreachable'); }
+          try {
+            const j = JSON.parse(data);
+            console.log(`  Health: ${j.status} (${j.timestamp})`);
+          } catch {
+            console.log('  Health: unreachable');
+          }
         });
       });
       req.on('error', () => console.log('  Health: unreachable'));
@@ -133,64 +196,92 @@ function cmdRestart() {
 }
 
 function cmdLogs() {
-  if (!existsSync(LOG_FILE)) {
+  if (!existsSync(PATHS.logPath)) {
     console.log('[mcp-memory] No logs yet');
     return;
   }
-  const tail = spawn('tail', ['-f', LOG_FILE], { stdio: 'inherit' });
+  const tail = spawn('tail', ['-f', PATHS.logPath], { stdio: 'inherit' });
   process.on('SIGINT', () => { tail.kill(); process.exit(0); });
 }
 
 function cmdStdio() {
-  console.log(`[mcp-memory] Building...`);
-  try {
-    execSync('npm run build', { cwd: ROOT, stdio: 'inherit' });
-  } catch {
-    console.error('[mcp-memory] Build failed');
-    process.exit(1);
-  }
-
-  console.log(`[mcp-memory] Starting MCP stdio server...`);
-  const child = spawn('node', ['dist/index.js'], {
-    cwd: ROOT,
-    stdio: ['inherit', 'inherit', 'inherit'],
-  });
-
-  child.on('exit', (code) => {
-    process.exit(code ?? 0);
-  });
+  console.error('[mcp-memory] Starting MCP stdio server...');
+  const child = spawnServer(false, ['inherit', 'inherit', 'inherit']);
+  child.on('exit', (code) => process.exit(code ?? 0));
 }
 
 function cmdInfo() {
   console.log(`Project:    ${PKG.name} v${PKG.version}`);
-  console.log(`Directory:  ${ROOT}`);
-  console.log(`DB:         ${ROOT}/data/memory.db`);
-  console.log(`Log:        ${LOG_FILE}`);
+  console.log(`Install:    ${ROOT}`);
+  console.log(`DB:         ${PATHS.dbPath}`);
+  console.log(`Log:        ${PATHS.logPath}`);
+  console.log(`PID File:   ${PATHS.pidPath}`);
   console.log(`HTTP Port:  ${process.env.HTTP_PORT || 3001}`);
-  console.log(`PID File:   ${PID_FILE}`);
   console.log('');
   console.log('Commands:');
-  console.log('  mcp-memory start      Start the server (background)');
-  console.log('  mcp-memory stop       Stop the server');
-  console.log('  mcp-memory status     Check server status');
-  console.log('  mcp-memory restart    Restart the server');
-  console.log('  mcp-memory logs       Tail server logs');
-  console.log('  mcp-memory info       Show project info');
-  console.log('  mcp-memory stdio      Run MCP server in foreground (for opencode)');
+  console.log('  mcp-memory start                 Start server in background');
+  console.log('  mcp-memory stop                  Stop server');
+  console.log('  mcp-memory status                Check server status');
+  console.log('  mcp-memory restart               Restart server');
+  console.log('  mcp-memory logs                  Tail server logs');
+  console.log('  mcp-memory stdio                 Run MCP server in foreground');
+  console.log('  mcp-memory paths                 Show resolved storage paths');
+  console.log('  mcp-memory version               Show package version');
+  console.log('  mcp-memory migrate-db --from X   Copy legacy database to default location');
+}
+
+function cmdPaths() {
+  console.log(`Home: ${PATHS.appHome}`);
+  console.log(`Data: ${PATHS.dataDir}`);
+  console.log(`State: ${PATHS.stateDir}`);
+  console.log(`DB: ${PATHS.dbPath}`);
+  console.log(`Log: ${PATHS.logPath}`);
+  console.log(`PID: ${PATHS.pidPath}`);
+}
+
+function cmdVersion() {
+  console.log(PKG.version);
+}
+
+function cmdMigrateDb() {
+  const fromFlag = process.argv.indexOf('--from');
+  if (fromFlag === -1 || !process.argv[fromFlag + 1]) {
+    console.error('Usage: mcp-memory migrate-db --from /path/to/memory.db');
+    process.exit(1);
+  }
+
+  const sourcePath = resolve(process.argv[fromFlag + 1]);
+  if (!existsSync(sourcePath)) {
+    console.error(`[mcp-memory] Source database not found: ${sourcePath}`);
+    process.exit(1);
+  }
+
+  ensureParentDirs();
+  if (existsSync(PATHS.dbPath)) {
+    console.error(`[mcp-memory] Destination database already exists: ${PATHS.dbPath}`);
+    console.error('[mcp-memory] Move or override DB_PATH if you want another target.');
+    process.exit(1);
+  }
+
+  copyFileSync(sourcePath, PATHS.dbPath);
+  console.log(`[mcp-memory] Database copied to ${PATHS.dbPath}`);
 }
 
 const cmd = process.argv[2] || 'status';
 
 switch (cmd) {
-  case 'start':    cmdStart(); break;
-  case 'stop':     cmdStop(); break;
-  case 'status':   cmdStatus(); break;
-  case 'restart':  cmdRestart(); break;
-  case 'logs':     cmdLogs(); break;
-  case 'info':     cmdInfo(); break;
-  case 'stdio':    cmdStdio(); break;
+  case 'start': cmdStart(); break;
+  case 'stop': cmdStop(); break;
+  case 'status': cmdStatus(); break;
+  case 'restart': cmdRestart(); break;
+  case 'logs': cmdLogs(); break;
+  case 'info': cmdInfo(); break;
+  case 'stdio': cmdStdio(); break;
+  case 'paths': cmdPaths(); break;
+  case 'version': cmdVersion(); break;
+  case 'migrate-db': cmdMigrateDb(); break;
   default:
     console.log(`Unknown command: ${cmd}`);
-    console.log('Usage: mcp-memory <start|stop|status|restart|logs|info|stdio>');
+    console.log('Usage: mcp-memory <start|stop|status|restart|logs|info|stdio|paths|version|migrate-db>');
     process.exit(1);
 }

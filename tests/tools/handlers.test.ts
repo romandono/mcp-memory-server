@@ -3,7 +3,7 @@ import { initializeDatabase, closeDatabase } from '../../src/db/init.js';
 import { handleProjectCreate, handleProjectList, handleProjectGet } from '../../src/tools/project.js';
 import { handleEntryCreate, handleEntryGet, handleEntrySearch, handleGlobalEntrySearch, handleEntryUpdate, handleEntryDelete } from '../../src/tools/entry.js';
 import { handleTaskCreate, handleTaskList, handleTaskUpdate } from '../../src/tools/task.js';
-import { handleAddFileChange, handleAddDecision, handleAddRelationship, handleGetEntryContext } from '../../src/tools/context.js';
+import { handleAddDecision, handleAddRelationship, handleGetEntryContext } from '../../src/tools/context.js';
 
 beforeEach(() => {
   initializeDatabase(':memory:');
@@ -222,26 +222,6 @@ describe('context tools', () => {
     eid = (await handleEntryCreate({ project_id: pid, section: 'plan', title: 'Test Entry' })).id;
   });
 
-  it('handleAddFileChange records a file change', async () => {
-    const result = await handleAddFileChange({
-      entry_id: eid, file_path: 'src/foo.ts', change_type: 'modified',
-      line_start: 10, line_end: 25, summary: 'Added feature',
-    });
-    expect(result.success).toBe(true);
-    expect(result.id).toBeDefined();
-  });
-
-  it('handleAddFileChange rejects non-existent entry', async () => {
-    const result = await handleAddFileChange({
-      entry_id: 'bad', file_path: 'src/foo.ts', change_type: 'modified', summary: 'x',
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it('handleAddFileChange rejects missing fields', async () => {
-    await expect(handleAddFileChange({ entry_id: eid })).rejects.toThrow();
-  });
-
   it('handleAddDecision records a decision', async () => {
     const result = await handleAddDecision({
       entry_id: eid, decision: 'Use FTS5', rationale: 'Fast search',
@@ -274,12 +254,10 @@ describe('context tools', () => {
   });
 
   it('handleGetEntryContext returns full context', async () => {
-    await handleAddFileChange({ entry_id: eid, file_path: 'src/bar.ts', change_type: 'added', summary: 'New' });
     await handleAddDecision({ entry_id: eid, decision: 'Use SQLite', rationale: 'Embedded' });
     const result = await handleGetEntryContext({ entry_id: eid });
     expect(result.success).toBe(true);
     expect(result.context.entry.title).toBe('Test Entry');
-    expect(result.context.fileChanges).toHaveLength(1);
     expect(result.context.decisions).toHaveLength(1);
     expect(result.context.relationships).toHaveLength(0);
   });

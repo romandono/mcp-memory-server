@@ -118,34 +118,18 @@ describe('Context API', () => {
   });
 
   it('GET /api/entries/:eid/context returns full context', async () => {
-    await request(app).post(`/api/entries/${eid}/file-changes`).send({
-      file_path: 'src/test.ts', change_type: 'modified', summary: 'Changes',
-    });
     await request(app).post(`/api/entries/${eid}/decisions`).send({
       decision: 'Use TS', rationale: 'Type safety',
     });
     const res = await request(app).get(`/api/entries/${eid}/context`);
     expect(res.status).toBe(200);
     expect(res.body.context.entry.title).toBe('Ctx Entry');
-    expect(res.body.context.fileChanges).toHaveLength(1);
     expect(res.body.context.decisions).toHaveLength(1);
   });
 
   it('GET /api/entries/:eid/context returns 404', async () => {
     const res = await request(app).get('/api/entries/bad/context');
     expect(res.status).toBe(404);
-  });
-
-  it('POST /api/entries/:eid/file-changes creates file change', async () => {
-    const res = await request(app).post(`/api/entries/${eid}/file-changes`).send({
-      file_path: 'src/foo.ts', change_type: 'added', summary: 'New module',
-    });
-    expect(res.status).toBe(201);
-  });
-
-  it('POST /api/entries/:eid/file-changes rejects missing fields', async () => {
-    const res = await request(app).post(`/api/entries/${eid}/file-changes`).send({});
-    expect(res.status).toBe(400);
   });
 
   it('POST /api/entries/:eid/decisions creates decision', async () => {

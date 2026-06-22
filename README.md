@@ -23,7 +23,7 @@ MCP ◄────► │  ┌──────────┐  ┌───�
            │    └────────┬────────┘            │
            └─────────────┼─────────────────────┘
                          ▼
-                 data/memory.db
+       ~/.local/share/mcp-memory/memory.db
 ```
 
 ### Estructura de datos
@@ -43,14 +43,9 @@ projects
  │    ├── title, description
  │    └── status, priority
  │
-   ├── file_changes
-   │    ├── id, entry_id
-   │    ├── file_path, change_type (added|modified|removed)
-   │    └── line_start, line_end, summary
-   │
-   ├── design_decisions
-   │    ├── id, entry_id
-   │    ├── decision, rationale
+    ├── design_decisions
+    │    ├── id, entry_id
+    │    ├── decision, rationale
    │    └── alternatives_considered
    │
    ├── entry_relationships
@@ -93,39 +88,53 @@ _migrations (tracking de cambios de schema)
 - Node.js ≥ 18
 - npm ≥ 9
 
-### Paso a paso
+### Instalación global desde release/npm
 
 ```bash
-# 1. Clonar o copiar el proyecto
-cd mcp-memory-server
+# Instalar última release publicada
+npm install -g mcp-memory-server
 
-# 2. Instalar dependencias
-npm install
+# Ver rutas resueltas y versión
+mcp-memory paths
+mcp-memory version
 
-# 3. Compilar TypeScript
-npm run build
-
-# 4. Iniciar el servidor (background)
-npm run start:bg
-
-# 5. Verificar que está corriendo
-npm run status
-```
-
-### Instalación global (opcional)
-
-Para usar `mcp-memory` desde cualquier directorio:
-
-```bash
-npm link
-```
-
-Ahora puedes usar el CLI globalmente:
-
-```bash
+# Iniciar servidor
 mcp-memory start
+
+# Ver estado
 mcp-memory status
-mcp-memory stop
+```
+
+### Uso sin instalación global
+
+```bash
+npx -y mcp-memory-server@latest stdio
+```
+
+### Upgrade / rollback
+
+```bash
+# Actualizar a última release
+npm install -g mcp-memory-server@latest
+
+# Instalar versión concreta
+npm install -g mcp-memory-server@1.0.0
+```
+
+### Desarrollo local
+
+```bash
+git clone <repo>
+cd mcp-memory-server
+npm install
+npm run build
+node bin/mcp-memory.js start
+```
+
+### Migrar base de datos antigua
+
+```bash
+mcp-memory migrate-db --from /ruta/antigua/memory.db
 ```
 
 ---
@@ -135,12 +144,15 @@ mcp-memory stop
 ### CLI
 
 ```bash
-mcp-memory start      # Compila + inicia en background
+mcp-memory start      # Inicia en background
 mcp-memory stop       # Detiene el servidor
 mcp-memory status     # Muestra estado (PID, health)
 mcp-memory restart    # Reinicia
 mcp-memory logs       # Tail de logs
 mcp-memory info       # Información del proyecto
+mcp-memory paths      # Muestra rutas resueltas
+mcp-memory version    # Muestra versión instalada
+mcp-memory migrate-db --from /ruta/db.sqlite
 ```
 
 O via npm:
@@ -155,6 +167,8 @@ npm start          # start en foreground
 ### API REST
 
 El servidor HTTP corre en `http://localhost:3001` (configurable con `HTTP_PORT`).
+
+Documentación interactiva disponible en: `http://localhost:3001/api-docs`
 
 > Todos los endpoints de listado soportan paginación con `?page=1&limit=50` (max 200).  
 > La respuesta incluye `pagination: { page, limit, total, totalPages }`.
@@ -189,8 +203,7 @@ GET    /api/entries/search?q=texto                    → Buscar entradas en tod
 #### Contexto enriquecido
 
 ```
-GET    /api/entries/:eid/context                      → Entry + file_changes + decisions + relationships
-POST   /api/entries/:eid/file-changes                 → Registrar cambio de archivo { file_path, change_type, summary, line_start?, line_end? }
+GET    /api/entries/:eid/context                      → Entry + decisions + relationships
 POST   /api/entries/:eid/decisions                    → Registrar decisión de diseño { decision, rationale, alternatives_considered? }
 POST   /api/entries/:eid/relationships                → Relacionar entries { target_entry_id, relationship_type }
 ```
@@ -232,10 +245,9 @@ El servidor expone estas herramientas vía MCP (STDIO):
 | `entry-search-global` | Buscar entradas en todos los proyectos (FTS5, sin project_id) |
 | `entry-update` | Actualizar entrada (title, content, status, section, parent_id) |
 | `entry-delete` | Eliminar entrada |
-| `entry-add-file-change` | Registrar archivo modificado en una entrada |
 | `entry-add-decision` | Registrar decisión de diseño |
 | `entry-add-relationship` | Relacionar dos entradas |
-| `entry-get-context` | Obtener entrada + file_changes + decisions + relationships |
+| `entry-get-context` | Obtener entrada + decisions + relationships |
 | `task-create` | Crear tarea |
 | `task-list` | Listar tareas de un proyecto (con paginación opcional) |
 | `task-update` | Actualizar estado de tarea |
@@ -249,8 +261,17 @@ Variables de entorno (fichero `.env`):
 
 ```env
 HTTP_PORT=3001        # Puerto del servidor REST
-DB_PATH=./data/memory.db  # Ruta a la base de datos
+DB_PATH=/ruta/memory.db   # Override directo de base de datos
+MCP_MEMORY_HOME=/ruta/base
+LOG_PATH=/ruta/server.log
+PID_PATH=/ruta/server.pid
 ```
+
+Rutas por defecto sin overrides:
+
+- Linux: `~/.local/share/mcp-memory/memory.db` y `~/.local/state/mcp-memory/`
+- macOS: `~/Library/Application Support/mcp-memory/`
+- Windows: `%LOCALAPPDATA%\mcp-memory\`
 
 ---
 
@@ -271,7 +292,7 @@ Para conectar este servidor MCP desde **opencode**, añade la siguiente configur
 }
 ```
 
-> Requiere tener el paquete instalado globalmente (`npm link` en el directorio del proyecto).
+> Requiere tener paquete instalado globalmente con `npm install -g mcp-memory-server`, o usar un wrapper `npx` propio.
 
 > **Nota:** Después de guardar los cambios, reinicia opencode para que la configuración surta efecto.
 
@@ -290,10 +311,9 @@ Una vez conectado, opencode tendrá acceso a estas herramientas:
 | `entry-search-global` | Buscar entradas en todos los proyectos |
 | `entry-update` | Actualizar una entrada (title, content, status, section, parent_id) |
 | `entry-delete` | Eliminar una entrada |
-| `entry-add-file-change` | Registrar archivo modificado en una entrada |
 | `entry-add-decision` | Registrar decisión de diseño |
 | `entry-add-relationship` | Relacionar dos entradas |
-| `entry-get-context` | Obtener entrada + file_changes + decisions + relationships |
+| `entry-get-context` | Obtener entrada + decisions + relationships |
 | `task-create` | Crear una tarea |
 | `task-list` | Listar tareas de un proyecto |
 | `task-update` | Actualizar estado de una tarea |
@@ -324,25 +344,33 @@ El schema de la base de datos se gestiona mediante migraciones numeradas en `src
 | `001_initial_schema` | Tablas base: projects, sdd_entries, tasks, classifications |
 | `002_add_fts5` | Búsqueda de texto completo (FTS5) con sincronización automática |
 | `003_add_audit_log` | Auditoría de cambios con triggers en entries y tasks |
-| `004_add_context_tables` | Tablas de contexto enriquecido: file_changes, design_decisions, entry_relationships |
+| `004_add_context_tables` | Tablas de contexto enriquecido: file_changes (legacy), design_decisions, entry_relationships |
 
 Las migraciones se aplican automáticamente al iniciar el servidor.  
 La tabla `_migrations` registra cuáles se han ejecutado.
+
+> Nota: `file_changes` puede seguir existiendo en bases de datos antiguas para preservar historial, pero ya no forma parte del modelo activo ni de la API/MCP pública.
 
 ---
 
 ## Acceso a la base de datos
 
-Mientras el servidor está en ejecución, la base de datos se puede consultar desde WSL:
+Primero obtén ruta real:
 
 ```bash
-sqlite3 data/memory.db "SELECT * FROM projects;"
+mcp-memory paths
+```
+
+En Linux/WSL, consulta SQLite así:
+
+```bash
+sqlite3 ~/.local/share/mcp-memory/memory.db "SELECT * FROM projects;"
 ```
 
 Para abrirla en DBeaver desde Windows, haz una copia:
 
 ```bash
-cp data/memory.db /tmp/memory-view.db
+cp ~/.local/share/mcp-memory/memory.db /tmp/memory-view.db
 ```
 
 Y abre `\\wsl.localhost\Ubuntu-24.04\tmp\memory-view.db` en DBeaver.

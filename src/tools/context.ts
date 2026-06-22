@@ -1,16 +1,7 @@
 import { z } from 'zod';
-import { addFileChange, addDesignDecision, addEntryRelationship, getEntryContext, getEntry } from '../db/schema.js';
-import { FileChange, DesignDecision, EntryRelationship } from '../types/context.js';
+import { addDesignDecision, addEntryRelationship, getEntryContext, getEntry } from '../db/schema.js';
+import { DesignDecision, EntryRelationship } from '../types/context.js';
 import { randomUUID } from 'crypto';
-
-const AddFileChangeSchema = z.object({
-  entry_id: z.string().min(1),
-  file_path: z.string().min(1),
-  change_type: z.enum(['added', 'modified', 'removed']),
-  line_start: z.number().int().positive().optional(),
-  line_end: z.number().int().positive().optional(),
-  summary: z.string().min(1),
-});
 
 const AddDecisionSchema = z.object({
   entry_id: z.string().min(1),
@@ -28,22 +19,6 @@ const AddRelationshipSchema = z.object({
 const GetContextSchema = z.object({
   entry_id: z.string().min(1),
 });
-
-export async function handleAddFileChange(input: unknown): Promise<any> {
-  const v = AddFileChangeSchema.parse(input);
-  const existing = getEntry(v.entry_id);
-  if (!existing) return { success: false, message: `Entry ${v.entry_id} not found` };
-
-  const id = randomUUID();
-  const now = new Date().toISOString();
-  const fc: FileChange = {
-    id, entry_id: v.entry_id, file_path: v.file_path,
-    change_type: v.change_type, line_start: v.line_start, line_end: v.line_end,
-    summary: v.summary, created_at: now,
-  };
-  addFileChange(fc);
-  return { success: true, id, message: `File change recorded for ${v.file_path}` };
-}
 
 export async function handleAddDecision(input: unknown): Promise<any> {
   const v = AddDecisionSchema.parse(input);

@@ -60,19 +60,7 @@ export interface AuditLogEntry {
   timestamp: string;
 }
 
-export type FileChangeType = 'added' | 'modified' | 'removed';
 export type RelationshipType = 'depends_on' | 'implements' | 'related_to' | 'supersedes';
-
-export interface FileChange {
-  id: string;
-  entry_id: string;
-  file_path: string;
-  change_type: FileChangeType;
-  line_start?: number;
-  line_end?: number;
-  summary: string;
-  created_at: string;
-}
 
 export interface DesignDecision {
   id: string;
@@ -93,7 +81,6 @@ export interface EntryRelationship {
 
 export interface EntryContext {
   entry: SddEntry;
-  fileChanges: FileChange[];
   decisions: DesignDecision[];
   relationships: EntryRelationship[];
 }

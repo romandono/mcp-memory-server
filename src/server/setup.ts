@@ -1,9 +1,9 @@
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { Tool } from '@modelcontextprotocol/sdk/types.js';
 
-export function createMcpServer(): { server: Server; transport: StdioServerTransport } {
-  const server = new Server({
+export function createMcpServer(): { server: McpServer; transport: StdioServerTransport } {
+  const server = new McpServer({
     name: 'mcp-memory-server',
     version: '1.0.0',
   }, {
@@ -110,22 +110,6 @@ export function getTools(): Tool[] {
       },
     },
     {
-      name: 'entry-add-file-change',
-      description: 'Records a file change associated with an SDD entry',
-      inputSchema: {
-        type: 'object' as const,
-        properties: {
-          entry_id: { type: 'string', description: 'Entry ID' },
-          file_path: { type: 'string', description: 'Path to the file that changed' },
-          change_type: { type: 'string', enum: ['added', 'modified', 'removed'], description: 'Type of change' },
-          line_start: { type: 'number', description: 'Start line number (optional)' },
-          line_end: { type: 'number', description: 'End line number (optional)' },
-          summary: { type: 'string', description: 'Brief summary of what changed' },
-        },
-        required: ['entry_id', 'file_path', 'change_type', 'summary'],
-      },
-    },
-    {
       name: 'entry-add-decision',
       description: 'Records a design decision for an SDD entry',
       inputSchema: {
@@ -154,7 +138,7 @@ export function getTools(): Tool[] {
     },
     {
       name: 'entry-get-context',
-      description: 'Gets full context for an entry (entry + file changes + decisions + relationships)',
+      description: 'Gets full context for an entry (entry + decisions + relationships)',
       inputSchema: {
         type: 'object' as const,
         properties: {

@@ -1,13 +1,12 @@
 import 'dotenv/config.js';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import { initializeDatabase, closeDatabase } from './db/init.js';
+import { getAppPaths } from './config/paths.js';
 import { createMcpServer, getTools } from './server/setup.js';
 import { handleProjectCreate, handleProjectList, handleProjectGet } from './tools/project.js';
 import { handleEntryCreate, handleEntryGet, handleEntrySearch, handleGlobalEntrySearch, handleEntryUpdate, handleEntryDelete } from './tools/entry.js';
 import { handleTaskCreate, handleTaskList, handleTaskUpdate } from './tools/task.js';
 import { handleAuditGet } from './tools/audit.js';
-import { handleAddFileChange, handleAddDecision, handleAddRelationship, handleGetEntryContext } from './tools/context.js';
+import { handleAddDecision, handleAddRelationship, handleGetEntryContext } from './tools/context.js';
 import { startHttpServer } from './http/server.js';
 import {
   CallToolRequestSchema,
@@ -15,10 +14,7 @@ import {
   CallToolResult,
 } from '@modelcontextprotocol/sdk/types.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const DB_PATH = process.env.DB_PATH || path.join(__dirname, '../data/memory.db');
+const { dbPath: DB_PATH } = getAppPaths();
 
 async function main() {
   try {
@@ -28,14 +24,15 @@ async function main() {
 
     console.log('[INIT] Creating MCP server...');
     const { server, transport } = createMcpServer();
+    const requestHandlerServer = server as any;
     console.log('[INIT] MCP server created');
 
-    server.setRequestHandler(ListToolsRequestSchema, async () => {
+    requestHandlerServer.setRequestHandler(ListToolsRequestSchema, async () => {
       console.log('[MCP] ListTools request');
       return { tools: getTools() };
     });
 
-    server.setRequestHandler(CallToolRequestSchema, async (request: any) => {
+    requestHandlerServer.setRequestHandler(CallToolRequestSchema, async (request: any) => {
       try {
         const toolName = request.params.name;
         const toolInput = request.params.arguments || {};
@@ -71,9 +68,6 @@ async function main() {
             break;
           case 'entry-delete':
             result = await handleEntryDelete(toolInput);
-            break;
-          case 'entry-add-file-change':
-            result = await handleAddFileChange(toolInput);
             break;
           case 'entry-add-decision':
             result = await handleAddDecision(toolInput);

@@ -1,5 +1,5 @@
 import { getDatabase } from './init.js';
-import { Project, SddEntry, Task, Classification, AuditLogEntry, FileChange, DesignDecision, EntryRelationship, EntryContext, PaginationParams, PaginatedResult } from '../types/context.js';
+import { Project, SddEntry, Task, Classification, AuditLogEntry, DesignDecision, EntryRelationship, EntryContext, PaginationParams, PaginatedResult } from '../types/context.js';
 import { toFtsQuery } from './migrations/runner.js';
 
 function parsePagination(params: PaginationParams): { limit: number; offset: number } {
@@ -279,19 +279,6 @@ export function getAuditLog(filters?: { entity_type?: string; entity_id?: string
   return { data, total };
 }
 
-// ---- FILE CHANGES ----
-
-export function addFileChange(fc: FileChange): void {
-  getDatabase().prepare(`
-    INSERT INTO file_changes (id, entry_id, file_path, change_type, line_start, line_end, summary, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(fc.id, fc.entry_id, fc.file_path, fc.change_type, fc.line_start || null, fc.line_end || null, fc.summary, fc.created_at);
-}
-
-export function getFileChanges(entryId: string): FileChange[] {
-  return getDatabase().prepare('SELECT * FROM file_changes WHERE entry_id = ? ORDER BY created_at ASC').all(entryId) as FileChange[];
-}
-
 // ---- DESIGN DECISIONS ----
 
 export function addDesignDecision(dd: DesignDecision): void {
@@ -325,10 +312,9 @@ export function getEntryRelationships(entryId: string): EntryRelationship[] {
 export function getEntryContext(entryId: string): EntryContext | null {
   const entry = getEntry(entryId);
   if (!entry) return null;
-  const fileChanges = getFileChanges(entryId);
   const decisions = getDesignDecisions(entryId);
   const relationships = getEntryRelationships(entryId);
-  return { entry, fileChanges, decisions, relationships };
+  return { entry, decisions, relationships };
 }
 
 // ---- CLASSIFICATIONS ----
