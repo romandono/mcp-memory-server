@@ -1,0 +1,26 @@
+bin/mcp-memory.js
+  s_791ab0fc1ee934::t_e55645e8fe2e9f 117
+  s_791ab0fc1ee934::t_61bf18ec9ea6ee 2,118-119,121
+src/server/setup.ts
+  s_791ab0fc1ee934::t_f6006b2992653c 1
+.gitignore
+  s_791ab0fc1ee934::t_3beb98e51ea1dd 19
+src/index.ts
+  s_791ab0fc1ee934::t_b1c0d819b55104 35
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "42af82bc3144b0e9e69c15e634605ecf25b7f4db",
+  "prompts": {},
+  "sessions": {
+    "s_791ab0fc1ee934": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_110305d72ffeg1llyJ81fU5xaF",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Roman Dono <romandp@ext.inditex.com>"
+    }
+  }
+}
