@@ -1,0 +1,19 @@
+.github/workflows/release.yml
+  s_791ab0fc1ee934::t_334f39f0b57218 25-27
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "9bb6b8096f32ccf56989e7148f5f92ace06c7f04",
+  "prompts": {},
+  "sessions": {
+    "s_791ab0fc1ee934": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_110305d72ffeg1llyJ81fU5xaF",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Roman Dono <romandp@ext.inditex.com>"
+    }
+  }
+}
