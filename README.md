@@ -121,6 +121,12 @@ npm install -g mcp-memory-server@latest
 npm install -g mcp-memory-server@1.0.0
 ```
 
+### Releases
+
+- Cada tag `v*` publica paquete npm y crea GitHub Release mediante `.github/workflows/release.yml`
+- El workflow requiere secreto `NPM_TOKEN`
+- El artefacto `.tgz` de la release permite probar instalación sin clonar repo
+
 ### Desarrollo local
 
 ```bash
@@ -294,6 +300,21 @@ Para conectar este servidor MCP desde **opencode**, añade la siguiente configur
 
 > Requiere tener paquete instalado globalmente con `npm install -g mcp-memory-server`, o usar un wrapper `npx` propio.
 
+Ejemplo sin instalación global permanente:
+
+```json
+{
+  "mcp": {
+    "mcp-memory-server": {
+      "type": "local",
+      "command": ["npx", "-y", "mcp-memory-server@latest", "stdio"],
+      "enabled": true,
+      "env": {}
+    }
+  }
+}
+```
+
 > **Nota:** Después de guardar los cambios, reinicia opencode para que la configuración surta efecto.
 
 ### Herramientas MCP disponibles
@@ -324,7 +345,7 @@ Una vez conectado, opencode tendrá acceso a estas herramientas:
 ## Tests y calidad
 
 ```bash
-npm test             # Ejecutar tests (Vitest, 118+ tests)
+npm test             # Ejecutar tests (Vitest)
 npm run test:watch   # Modo watch
 npm run lint         # ESLint
 npm run lint:fix     # ESLint con auto-fix

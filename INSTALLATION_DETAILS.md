@@ -1,38 +1,57 @@
-# Proceso de Instalación Global (mcp-memory-server)
+# Proceso de Instalación y Distribución (mcp-memory-server)
 
-Este documento registra los pasos realizados para que `mcp-memory-server` funcione globalmente en un entorno gestionado por `asdf` e `ivm-node`.
+Este documento registra flujo actual para instalar `mcp-memory-server` sin clonar repositorio, publicar releases y ubicar datos runtime fuera del directorio del paquete.
 
 ## Fecha
 2026-06-03
 
-## Pasos Realizados
+## Estado actual
 
-1. **Configuración de Versión Global de Node:**
-   Para evitar el error "No version is set", se estableció una versión de `ivm-node` como predeterminada para el sistema.
+1. **Paquete instalable desde npm/GitHub Release:**
+   El proyecto se empaqueta con `dist/` precompilado mediante `prepack`, por lo que instalación final no depende de compilar TypeScript en máquina cliente.
+
+2. **Instalación global estándar:**
    ```bash
-   asdf set ivm-node 22.17.1
+   npm install -g mcp-memory-server
    ```
 
-2. **Vinculación Global del Paquete (npm link):**
-   Se utilizó `npm link` dentro del directorio del proyecto para registrar el binario `mcp-memory` de forma que cualquier cambio en el código fuente sea inmediato.
+3. **Uso sin instalación global permanente:**
    ```bash
-   cd /home/romandp/projects/owner/mcp-memory-server
-   npm link
+   npx -y mcp-memory-server@latest stdio
    ```
 
-3. **Actualización de Shims de asdf:**
-   Se regeneraron los accesos directos (shims) de `asdf` para que el comando `mcp-memory` sea reconocido por el shell en cualquier ubicación.
+4. **Upgrade / rollback por versión:**
    ```bash
-   asdf reshim ivm-node 22.17.1
+   npm install -g mcp-memory-server@latest
+   npm install -g mcp-memory-server@1.0.0
    ```
+
+5. **Rutas runtime por usuario:**
+   La base de datos, logs y PID ya no se guardan dentro del repo ni del directorio del paquete instalado.
+
+   Defaults:
+   - Linux: `~/.local/share/mcp-memory/memory.db` y `~/.local/state/mcp-memory/`
+   - macOS: `~/Library/Application Support/mcp-memory/`
+   - Windows: `%LOCALAPPDATA%\mcp-memory\`
+
+6. **Migración manual de BD antigua:**
+   Para copiar una BD legacy desde un checkout anterior:
+   ```bash
+   mcp-memory migrate-db --from /ruta/antigua/memory.db
+   ```
+
+7. **Release automation:**
+   Taggear `v*` ejecuta workflow `.github/workflows/release.yml`, corre tests/build, publica en npm y crea GitHub Release. Requiere secreto `NPM_TOKEN`.
 
 ## Verificación
-El comando ahora es accesible globalmente:
+Comandos relevantes:
 ```bash
-mcp-memory --help
-# Usage: mcp-memory <start|stop|status|restart|logs|info|stdio>
+mcp-memory version
+mcp-memory paths
+mcp-memory status
 ```
 
 ## Configuración MCP Recomendada
 Para integrar con agentes de IA (como opencode), usar:
 - **Command:** `mcp-memory stdio`
+- **Alternativa sin instalación global:** `npx -y mcp-memory-server@latest stdio`

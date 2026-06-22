@@ -58,18 +58,18 @@ Framework: Vitest. Estructura: tests/ directory espejando src/. Mocks: better-sq
 
 ## 3. CLI Instalable
 
-**Plan:** Crear un instalable del proyecto via CLI (mcp-memory) con comandos start/stop/status/restart/info/logs, npm link para uso global, y guardar contexto en la BD.
+**Plan:** Crear un instalable del proyecto via CLI (mcp-memory) con comandos start/stop/status/restart/info/logs y soporte de instalación global.
 **Estado:** ✅ Done
 
 ### Diseño del CLI
-Script Node.js ESM en bin/mcp-memory.js con: cmdStart (build+spawn detached), cmdStop (SIGTERM), cmdStatus (PID file + health check), cmdLogs (tail -f). PID en .server.pid, logs en server.log. npm link para instalación global.
+Implementación inicial via script Node.js ESM en `bin/mcp-memory.js` con `cmdStart`, `cmdStop`, `cmdStatus`, `cmdLogs` y soporte de instalación global.
 
 ### Tareas completadas:
 | # | Tarea | Prioridad | Estado |
 |---|-------|-----------|--------|
 | 1 | Crear bin/mcp-memory.js | Alta | ✅ |
 | 2 | Configurar package.json | Alta | ✅ |
-| 3 | npm link global | Alta | ✅ |
+| 3 | Instalación global CLI | Alta | ✅ |
 | 4 | Testear CLI | Alta | ✅ |
 | 5 | Guardar contexto en BD | Media | ✅ |
 | 6 | Añadir express como dependencia | Media | ✅ |
@@ -81,6 +81,13 @@ Script Node.js ESM en bin/mcp-memory.js con: cmdStart (build+spawn detached), cm
 **Estado:** ✅ Done
 
 Actualizar README.md con documentación funcional, técnica e instalación paso a paso, API, MCP tools, DB schema.
+
+### Actualización 2026-06-22
+- Distribución preparada para `npm install -g` y `npx -y ... stdio`
+- `prepack` compila `dist/` antes de publicar; no hay build en runtime
+- DB, logs y PID se mueven a directorios por usuario (`~/.local/share` / `~/.local/state` en Linux)
+- Nuevo comando `mcp-memory migrate-db --from <path>` para copiar BD legacy
+- Workflow `.github/workflows/release.yml` publica npm package y GitHub Release al taggear `v*`
 
 ---
 
