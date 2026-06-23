@@ -1,7 +1,7 @@
 {
-  "name": "mcp-memory-server",
+  "name": "@romandono/context-cache-mcp",
   "version": "1.0.0",
-  "description": "Servidor MCP para almacenar contexto de IA en SQLite local",
+  "description": "Local SQLite-backed MCP server for AI memory and project context.",
   "main": "dist/index.js",
   "type": "module",
   "files": [

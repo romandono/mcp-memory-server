@@ -4,7 +4,7 @@ import { Tool } from '@modelcontextprotocol/sdk/types.js';
 
 export function createMcpServer(): { server: McpServer; transport: StdioServerTransport } {
   const server = new McpServer({
-    name: 'mcp-memory-server',
+    name: '@romandono/context-cache-mcp',
     version: '1.0.0',
   }, {
     capabilities: {

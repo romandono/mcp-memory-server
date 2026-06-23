@@ -92,7 +92,7 @@ _migrations (tracking de cambios de schema)
 
 ```bash
 # Instalar última release publicada
-npm install -g mcp-memory-server
+npm install -g @romandono/context-cache-mcp
 
 # Ver rutas resueltas y versión
 mcp-memory paths
@@ -108,17 +108,17 @@ mcp-memory status
 ### Uso sin instalación global
 
 ```bash
-npx -y mcp-memory-server@latest stdio
+npx -y @romandono/context-cache-mcp@latest stdio
 ```
 
 ### Upgrade / rollback
 
 ```bash
 # Actualizar a última release
-npm install -g mcp-memory-server@latest
+npm install -g @romandono/context-cache-mcp@latest
 
 # Instalar versión concreta
-npm install -g mcp-memory-server@1.0.0
+npm install -g @romandono/context-cache-mcp@1.0.0
 ```
 
 ### Releases
@@ -131,7 +131,7 @@ npm install -g mcp-memory-server@1.0.0
 
 ```bash
 git clone <repo>
-cd mcp-memory-server
+cd context-cache-mcp
 npm install
 npm run build
 node bin/mcp-memory.js start
@@ -334,7 +334,7 @@ Para conectar este servidor MCP desde **opencode**, añade la siguiente configur
 ```json
 {
   "mcp": {
-    "mcp-memory-server": {
+    "context-cache-mcp": {
       "type": "local",
       "command": ["mcp-memory", "stdio"],
       "enabled": true,
@@ -344,16 +344,16 @@ Para conectar este servidor MCP desde **opencode**, añade la siguiente configur
 }
 ```
 
-> Requiere tener paquete instalado globalmente con `npm install -g mcp-memory-server`, o usar un wrapper `npx` propio.
+> Requiere tener paquete instalado globalmente con `npm install -g @romandono/context-cache-mcp`, o usar un wrapper `npx` propio.
 
 Ejemplo sin instalación global permanente:
 
 ```json
 {
   "mcp": {
-    "mcp-memory-server": {
+    "context-cache-mcp": {
       "type": "local",
-      "command": ["npx", "-y", "mcp-memory-server@latest", "stdio"],
+      "command": ["npx", "-y", "@romandono/context-cache-mcp@latest", "stdio"],
       "enabled": true,
       "env": {}
     }
