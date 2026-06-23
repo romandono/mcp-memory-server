@@ -1,6 +1,6 @@
-# Proceso de Instalación y Distribución (@romandono/context-cache-mcp)
+# Proceso de Instalación y Distribución (@romandp/context-memory-mcp)
 
-Este documento registra flujo actual para instalar `@romandono/context-cache-mcp` sin clonar repositorio, publicar releases y ubicar datos runtime fuera del directorio del paquete.
+Este documento registra flujo actual para instalar `@romandp/context-memory-mcp` sin clonar repositorio, publicar releases y ubicar datos runtime fuera del directorio del paquete.
 
 ## Fecha
 2026-06-03
@@ -12,18 +12,18 @@ Este documento registra flujo actual para instalar `@romandono/context-cache-mcp
 
 2. **Instalación global estándar:**
    ```bash
-   npm install -g @romandono/context-cache-mcp
+   npm install -g @romandp/context-memory-mcp
    ```
 
 3. **Uso sin instalación global permanente:**
    ```bash
-   npx -y @romandono/context-cache-mcp@latest stdio
+   npx -y @romandp/context-memory-mcp@latest stdio
    ```
 
 4. **Upgrade / rollback por versión:**
    ```bash
-   npm install -g @romandono/context-cache-mcp@latest
-   npm install -g @romandono/context-cache-mcp@1.0.0
+   npm install -g @romandp/context-memory-mcp@latest
+   npm install -g @romandp/context-memory-mcp@1.0.0
    ```
 
 5. **Rutas runtime por usuario:**
@@ -61,7 +61,7 @@ mcp-memory rebuild-memory
 ## Configuración MCP Recomendada
 Para integrar con agentes de IA (como opencode), usar:
 - **Command:** `mcp-memory stdio`
-- **Alternativa sin instalación global:** `npx -y @romandono/context-cache-mcp@latest stdio`
+- **Alternativa sin instalación global:** `npx -y @romandp/context-memory-mcp@latest stdio`
 
 Parámetros recomendados para clientes que optimizan tokens:
 - `view=compact`

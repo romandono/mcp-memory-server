@@ -1,5 +1,5 @@
 {
-  "name": "@romandono/context-cache-mcp",
+  "name": "@romandp/context-memory-mcp",
   "version": "1.0.0",
   "description": "Local SQLite-backed MCP server for AI memory and project context.",
   "main": "dist/index.js",
