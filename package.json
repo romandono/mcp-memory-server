@@ -1,13 +1,14 @@
 {
   "name": "@romandp/context-memory-mcp",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Local SQLite-backed MCP server for AI memory and project context.",
   "main": "dist/index.js",
   "type": "module",
   "files": [
     "dist",
     "bin",
-    "README.md"
+    "README.md",
+    "docs"
   ],
   "bin": {
     "mcp-memory": "./bin/mcp-memory.js"
