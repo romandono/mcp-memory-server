@@ -1,0 +1,27 @@
+.opencode/skills/sdd-memory-mcp/references/toon-format.md
+  s_f3c9699e44d43d::t_275ecdf1abc211 116
+  s_f3c9699e44d43d::t_905849dac55d39 1-115,117-122
+.opencode/skills/sdd-memory-mcp/SKILL.md
+  s_f3c9699e44d43d::t_35d2f39d8c6530 1-2,4-5,7-9
+  s_f3c9699e44d43d::t_149e979edeeec8 3,6,10-106,108-109,114-160
+  s_f3c9699e44d43d::t_68f91f730c1cff 107,110-113
+.opencode/skills/sdd-memory-mcp/references/tools.md
+  s_f3c9699e44d43d::t_0c318696e06cef 25-27
+  s_f3c9699e44d43d::t_40d4584b151f3b 1-24,28-198
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.10",
+  "base_commit_sha": "9d29ff056f5a27e807d4bc47207540036aa30431",
+  "prompts": {},
+  "sessions": {
+    "s_f3c9699e44d43d": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_10bb2ac9cffe2phFDk5nptVzg7",
+        "model": "claude-opus-4.8"
+      },
+      "human_author": "Roman Dono <romandp@ext.inditex.com>"
+    }
+  }
+}
