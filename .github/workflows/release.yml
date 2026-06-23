@@ -35,12 +35,6 @@ jobs:
           NPM_CONFIG_GLOBALCONFIG="$RUNNER_TEMP/empty-global.npmrc" \
           NPM_CONFIG_REGISTRY="https://registry.npmjs.org/" \
           npm ci --registry=https://registry.npmjs.org
-        env:
-          NODE_AUTH_TOKEN: ''
-          NPM_TOKEN: ''
-          NPM_CONFIG_ALWAYS_AUTH: 'false'
-          NPM_CONFIG__AUTH: ''
-          NPM_CONFIG__AUTHTOKEN: ''
 
       - name: Run tests
         run: npm test
